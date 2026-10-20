@@ -341,7 +341,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       return
     }
     const opening = draftOptions === undefined
-      ? this.openWorkspaceSession(target, undefined, undefined)
+      ? this.openWorkspaceSession(target, undefined, {})
       : this.openWorkspace(target, initializeDraft ? (id) => {
         const binding = this.sessions.binding(id)
         if (binding === undefined) this.draftPreparationFailed()

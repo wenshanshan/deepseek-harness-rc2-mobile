@@ -682,16 +682,16 @@ describe('UiWorkspaceService', () => {
     expect(b.sessions.retain).not.toHaveBeenCalled()
   })
 
-  it('creates a fresh Agent on explicit New Session instead of reusing a mounted blank', async () => {
+  it('reuses the mounted blank (preserving its draft) on explicit New Session', async () => {
     const b = bench({
       sessions: sessionState([summary('blank', { blank: true, cwd: '/w/a' })], 'pending'),
       workspaces: workspaceState([workspace('a', [sid('blank')])]),
     })
     b.uiWorkspace.startSession(wid('a'))
     await vi.waitFor(() => {
-      expect(b.sessions.create).toHaveBeenCalledExactlyOnceWith({ workspaceId: wid('a') })
+      expect(b.sessions.create).toHaveBeenCalledExactlyOnceWith({ workspaceId: wid('a'), sessionId: sid('blank') })
     })
-    await vi.waitFor(() => { expect(b.sessions.retain).toHaveBeenCalledWith(sid('created-a'), expect.anything()) })
+    await vi.waitFor(() => { expect(b.sessions.retain).toHaveBeenCalledWith(sid('blank'), expect.anything()) })
   })
 
   it('reports a refused explicit Session creation through the Workspace notice', async () => {
