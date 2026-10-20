@@ -75,6 +75,35 @@ describe('createLayoutStore', () => {
     actions.setViewportWidth(980)
     expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
   })
+
+  it('collapses only a manually expanded narrow sidebar, keeping the width preference', () => {
+    const { store, actions } = createLayoutStore().create()
+    actions.setSidebar(400)
+    actions.setViewportWidth(800)
+    actions.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, viewportWidth: 800, narrowExpanded: true })
+    actions.collapseSidebar()
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, narrowExpanded: false })
+  })
+
+  it('leaves the wide layout untouched when collapsing', () => {
+    const { store, actions } = createLayoutStore().create()
+    actions.setSidebar(400)
+    actions.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo.sidebar).toBe(0)
+    const wide = store.getSnapshot()
+    actions.collapseSidebar()
+    expect(store.getSnapshot()).toBe(wide)
+  })
+
+  it('clears the fullscreen-exit marker when collapsing', () => {
+    const { store, actions } = createLayoutStore().create()
+    actions.openRightbar(true, true)
+    actions.closeRightbar()
+    expect(store.getSnapshot().layoutInfo.rightbarInstant).toBe(true)
+    actions.collapseSidebar()
+    expect(store.getSnapshot().layoutInfo.rightbarInstant).toBe(false)
+  })
 })
 
 describe('main panel selection', () => {

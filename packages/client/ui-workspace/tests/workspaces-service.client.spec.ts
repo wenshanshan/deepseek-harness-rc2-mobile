@@ -289,10 +289,11 @@ function bench(options: BenchOptions = {}) {
   if (options.conversation !== false) ctx.provide('conversation', { input: { requestDraftInitialization } })
   const layout = new LayoutController({
     selectPanel: vi.fn(), retainMainPanels: vi.fn(),
-    setSidebar: vi.fn(), toggleSidebar: vi.fn(), setViewportWidth: vi.fn(),
+    setSidebar: vi.fn(), toggleSidebar: vi.fn(), collapseSidebar: vi.fn(), setViewportWidth: vi.fn(),
     setRightbar: vi.fn(), openRightbar: vi.fn(), closeRightbar: vi.fn(),
   }, () => true, createSnapshotStore({ activePanelId: null }))
   const selectPanel = vi.spyOn(layout, 'selectPanel')
+  const collapseSidebar = vi.spyOn(layout, 'collapseSidebar')
   ctx.provide('layout', layout)
   ctx.effect(() => () => { layout.dispose() })
   const directoryPicker = new FakeDirectoryPicker()
@@ -310,7 +311,10 @@ function bench(options: BenchOptions = {}) {
     view.actions,
     notify,
   )
-  return { ctx, directoryPicker, sessions, uiWorkspace, workspaces, layout, selectPanel, view, notify, requestDraftInitialization }
+  return {
+    ctx, directoryPicker, sessions, uiWorkspace, workspaces, layout, selectPanel, collapseSidebar,
+    view, notify, requestDraftInitialization,
+  }
 }
 
 function lastOpening(open: MockInstance<UiWorkspaceService['openWorkspace']>): Promise<void> {
@@ -426,6 +430,7 @@ describe('UiWorkspaceService', () => {
     const b = bench()
     b.uiWorkspace.openSession(sid('target'))
     expect(b.selectPanel).toHaveBeenCalledWith(null)
+    expect(b.collapseSidebar).toHaveBeenCalledTimes(1)
     expect(b.sessions.retain).toHaveBeenCalledWith(sid('target'), { source: 'mainView' })
     expect(b.sessions.refreshProjections).not.toHaveBeenCalled()
   })
@@ -786,6 +791,7 @@ describe('UiWorkspaceService', () => {
     b.uiWorkspace.startSession()
 
     expect(b.selectPanel).toHaveBeenCalledWith(null)
+    expect(b.collapseSidebar).toHaveBeenCalledTimes(1)
   })
 
   describe('startSession draft initialization', () => {

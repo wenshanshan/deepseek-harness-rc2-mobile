@@ -494,6 +494,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     this.selection.set({})
     previous?.release()
     this.ctx.layout.selectPanel(null)
+    this.ctx.layout.collapseSidebar()
   }
 
   private replaceMain(
@@ -525,7 +526,12 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const previous = this.mainReference
     this.mainReference = reference
     previous?.release()
-    if (panel === 'reveal') this.ctx.layout.selectPanel(null)
+    if (panel === 'reveal') {
+      this.ctx.layout.selectPanel(null)
+      // Opening a Session from the mobile rail exits the rail: the new
+      // Conversation takes the whole viewport.
+      this.ctx.layout.collapseSidebar()
+    }
   }
 
 }
