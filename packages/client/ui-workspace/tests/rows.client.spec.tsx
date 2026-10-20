@@ -37,10 +37,10 @@ type SessionNodeItemProps = ComponentProps<typeof SessionNodeItemComponent>
 const renderNoRowEntries: RowRenderSlot = () => null
 
 // Direct row specs use the real required Slot share, empty unless the case supplies entries.
-function SessionNodeItem({ renderSlot = renderNoRowEntries, onRenameRequest = () => {}, ...props }: Omit<
-  SessionNodeItemProps, 'renderSlot' | 'onRenameRequest'
-> & Partial<Pick<SessionNodeItemProps, 'renderSlot' | 'onRenameRequest'>>) {
-  return <SessionNodeItemComponent {...props} renderSlot={renderSlot} onRenameRequest={onRenameRequest} />
+function SessionNodeItem({ renderSlot = renderNoRowEntries, ...props }: Omit<
+  SessionNodeItemProps, 'renderSlot'
+> & Partial<Pick<SessionNodeItemProps, 'renderSlot'>>) {
+  return <SessionNodeItemComponent {...props} renderSlot={renderSlot} />
 }
 
 /** Half detection reads the row rect; jsdom rects are all-zero by default. */
@@ -1076,24 +1076,20 @@ describe('workspace browser rows', () => {
     expect(row.getAttribute('aria-description')).toBe('已归档对话暂时无法查看，请取消归档后查看')
   })
 
-  it('double-clicking the title asks for the rename dialog with the current title, but not on a blank row', () => {
-    const onRenameRequest = vi.fn()
+  it('a title double-click opens the session, and raises no rename prompt', () => {
     const onOpen = vi.fn()
     const node: SessionNode = {
       id: sid('s1'), title: 'Named', blank: false, running: false,
       runningSubagentCount: 0, completed: false, updatedAt: 0, pinned: false, archived: false,
     }
-    const view = render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={onOpen}
-      onRenameRequest={onRenameRequest} t={t} />)
+    render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={onOpen} t={t} />)
+    // A real double-click dispatches two clicks plus a dblclick: both clicks
+    // open the row (idempotently), and the dblclick itself carries no rename
+    // gesture anymore, so it must not raise anything.
+    fireEvent.click(screen.getByText('Named'))
+    fireEvent.click(screen.getByText('Named'))
     fireEvent.doubleClick(screen.getByText('Named'))
-    expect(onRenameRequest).toHaveBeenCalledWith(node.id, 'Named')
-    expect(onOpen).not.toHaveBeenCalled()
-
-    // A blank placeholder has no content to rename: double-click is inert.
-    view.rerender(<SessionNodeItem node={{ ...node, blank: true }} currentId={undefined} now={0}
-      onOpen={onOpen} onRenameRequest={onRenameRequest} t={t} />)
-    fireEvent.doubleClick(screen.getByText('新会话'))
-    expect(onRenameRequest).toHaveBeenCalledOnce()
+    expect(onOpen).toHaveBeenCalledTimes(2)
   })
 
   it('flags an archived content-search result', () => {
@@ -1219,12 +1215,10 @@ describe('session row schedule seats', () => {
 it.each([['未命名', t], ['Untitled', tEn]])('labels unnamed history as %s', (label, translate) => {
   const node: SessionNode = { id: sid('unnamed'), title: '', blank: false, running: false,
     runningSubagentCount: 0, completed: false, updatedAt: 0, pinned: false, archived: false }
-  const onRenameRequest = vi.fn()
-  render(<SessionNodeItem node={node} currentId={node.id} now={0} onOpen={vi.fn()}
-    renderSlot={() => null} onRenameRequest={onRenameRequest} t={translate} />)
+  const onOpen = vi.fn()
+  render(<SessionNodeItem node={node} currentId={node.id} now={0} onOpen={onOpen}
+    renderSlot={() => null} t={translate} />)
   expect(screen.getByText(label)).toBeTruthy()
-  fireEvent.doubleClick(screen.getByText(label))
-  expect(onRenameRequest).toHaveBeenCalledWith(node.id, '')
 })
 
 it.each([['未命名', t], ['Untitled', tEn]])('labels unnamed search results as %s', (label, translate) => {

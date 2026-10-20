@@ -642,11 +642,8 @@ describe('ui-workspace apply', () => {
     } as never)
     await expect(dialog.renameSession('session' as never, 'again')).rejects.toThrow('title write failed')
 
-    // The browser raises the same rename request from a title double-click,
-    // restores from its search results, and carries none of the row verbs itself.
+    // The browser face carries none of the row verbs itself.
     const browser = faceOf(b.slots.entries('sidebar.workspaces')[0]!) as WorkspaceBrowserInjected
-    browser.requestSessionRename('session' as never, 'Row title')
-    expect(dialog.hooks.renameRequest.getSnapshot()).toEqual({ sessionId: 'session', currentTitle: 'Row title' })
     for (const verb of ['forkSession', 'archiveSession', 'pinSession', 'unpinSession', 'renameSession', 'undoArchive', 'showArchived']) {
       expect(browser).not.toHaveProperty(verb)
     }

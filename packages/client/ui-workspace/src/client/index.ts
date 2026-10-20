@@ -268,7 +268,6 @@ export function apply(ctx: Context): void {
     open: openSession,
     searchSessions,
     searchResultLimit: sessions.searchResultLimit,
-    requestSessionRename,
     notifyArchivedNotOpenable: () => { notify({ kind: 'archivedNotOpenable' }) },
     renameWorkspace: async (workspaceId, title) => { await workspaces.rename(workspaceId, title) },
     deleteWorkspace: async (workspaceId) => { await workspaces.delete(workspaceId) },

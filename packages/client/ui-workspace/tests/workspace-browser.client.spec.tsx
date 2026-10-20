@@ -114,7 +114,6 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     requestAddWorkspace: controls.add,
     closeAddWorkspace: controls.closeAdd,
     setDirectoryBusy: controls.directoryBusy,
-    requestSessionRename: controls.rename,
     wide: true,
     expandSidebar: vi.fn(),
     useSessions: hook(sessionState([])),
@@ -708,23 +707,25 @@ describe('WorkspaceBrowser', () => {
     expect(screen.queryByText('alpha-s')).toBeNull()
   })
 
-  it('a title double-click asks for the rename dialog with the row title', () => {
-    const requestSessionRename = vi.fn()
+  it('a title double-click opens the session, and raises no rename request', () => {
     const open = vi.fn()
     const b = mount({
       useSessions: hook(sessionState([summary('alpha-s', 1, { displayTitle: 'Alpha session' })])),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['alpha-s'])])),
-      requestSessionRename,
       open,
     })
     fireEvent.click(screen.getByText('alpha'))
+    fireEvent.click(screen.getByText('Alpha session'))
     fireEvent.doubleClick(screen.getByText('Alpha session'))
-    expect(requestSessionRename).toHaveBeenCalledWith(sid('alpha-s'), 'Alpha session')
-    expect(open).not.toHaveBeenCalled()
-    // The flat list threads the same request.
+    // The click opens the row; the dblclick itself raises nothing (the rename
+    // gesture is gone), so open ran exactly once here.
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(open.mock.calls[0]).toEqual([sid('alpha-s')])
+    // The flat list threads the same click-only behavior.
     act(() => { b.store.actions.setGroupBy('flat') })
+    fireEvent.click(screen.getByText('Alpha session'))
     fireEvent.doubleClick(screen.getByText('Alpha session'))
-    expect(requestSessionRename).toHaveBeenCalledTimes(2)
+    expect(open).toHaveBeenCalledTimes(2)
   })
 
   it('renders both Session row lists for every visible row in the grouped tree and the flat list', () => {

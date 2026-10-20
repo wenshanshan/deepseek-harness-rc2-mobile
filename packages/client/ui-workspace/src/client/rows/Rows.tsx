@@ -533,7 +533,6 @@ export function SearchResultItem({ result, currentId, onOpen, onUnarchive, t }: 
  * @param props.currentId - selected session id (row highlight).
  * @param props.now - epoch ms for relative-time formatting.
  * @param props.onOpen - open a session by id.
- * @param props.onRenameRequest - open the rename dialog from a title double-click (id + current title).
  * @param props.renderSlot - child-seat renderer for the row's action lists
  * (`sidebar.workspaces.session.menu.item` / `sidebar.workspaces.session.row.action`),
  * its leading decoration, and its hover-card section.
@@ -543,14 +542,12 @@ export function SearchResultItem({ result, currentId, onOpen, onUnarchive, t }: 
  * @returns the session row.
  */
 export function SessionNodeItem({
-  node, currentId, now, onOpen, onRenameRequest, renderSlot, onReveal, drag, t,
+  node, currentId, now, onOpen, renderSlot, onReveal, drag, t,
 }: {
   node: SessionNode
   currentId: string | undefined
   now: number
   onOpen: (id: SessionNode['id']) => void
-  /** Open the rename dialog from a title double-click (id + current title). */
-  onRenameRequest: (id: SessionNode['id'], currentTitle: string) => void
   /** Scroll this row into view after search navigation, then acknowledge it. */
   onReveal?: (() => void) | undefined
   /** Present on reorderable-list rows so every row can remain a drop target. */
@@ -637,9 +634,6 @@ export function SessionNodeItem({
       <span
         ref={titleRef}
         className={css.title}
-        onDoubleClick={row.blank
-          ? undefined
-          : (e) => { e.stopPropagation(); onRenameRequest(node.id, row.title) }}
       >
         {title}
       </span>
