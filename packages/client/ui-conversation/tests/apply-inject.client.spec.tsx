@@ -35,6 +35,7 @@ function sessionFakeFor() {
     loadOlder: vi.fn<ISession['loadOlder']>(() => Promise.resolve()),
     prompt: vi.fn<ISession['prompt']>(() => Promise.resolve({ ok: true, value: { accepted: true } })),
     cancel: vi.fn<ISession['cancel']>(() => Promise.resolve({ ok: true, value: { accepted: true } })),
+    command: vi.fn<ISession['command']>(() => Promise.resolve({ ok: true, value: { matched: true } })),
   } satisfies SessionBehaviorOverrides
 }
 
@@ -501,6 +502,7 @@ describe('Conversation inject API', () => {
     expect(absent.keyboard).toBeUndefined()
     expect(absent.toggleCommandMenu).toBeUndefined()
     expect(absent.stop).toBeUndefined()
+    expect(absent.compact).toBeUndefined()
     expect(absent.hooks.notices.getSnapshot()).toBeNull()
     expect(absent.hooks.lexicon.getSnapshot().size).toBe(0)
     expect(absent.hooks.menuLauncher.getSnapshot()).toBeNull()
@@ -508,6 +510,42 @@ describe('Conversation inject API', () => {
     const stop = injectBar(ROOT).stop!
     await b.feature.dispose()
     expect(() => { stop() }).toThrow(/unavailable through the session scope/)
+    await b.runtime.dispose()
+  })
+
+  it('requests manual compaction through the Session command and notices refusals', async () => {
+    const b = await bench()
+    const composer = b.composerApi(ROOT)
+    const notices = (b.inputApi(ROOT).actions as SessionInputShell).notices
+    void composer.compact!()
+    await vi.waitFor(() => { expect(b.sessionFake.command).toHaveBeenCalledWith('/compact') })
+    expect(notices.getSnapshot()).toBeNull()
+
+    b.sessionFake.command.mockResolvedValueOnce({
+      ok: false, error: new RemoteError('gateway/internal', 'compaction refused', {}),
+    })
+    void composer.compact!()
+    await vi.waitFor(() => {
+      expect(notices.getSnapshot()).toEqual({
+        level: 'error', text: 'compaction refused (gateway/internal)', seq: expect.any(Number),
+      })
+    })
+
+    b.sessionFake.command.mockResolvedValueOnce({ ok: true, value: { matched: false } })
+    void composer.compact!()
+    await vi.waitFor(() => {
+      expect(notices.getSnapshot()).toEqual({
+        level: 'error', text: '当前会话无法压缩上下文', seq: expect.any(Number),
+      })
+    })
+
+    b.sessionFake.command.mockRejectedValueOnce(new Error('socket closed'))
+    void composer.compact!()
+    await vi.waitFor(() => {
+      expect(notices.getSnapshot()).toEqual({
+        level: 'error', text: 'socket closed', seq: expect.any(Number),
+      })
+    })
     await b.runtime.dispose()
   })
 

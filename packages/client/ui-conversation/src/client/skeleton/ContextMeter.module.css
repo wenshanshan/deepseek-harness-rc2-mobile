@@ -152,3 +152,34 @@
   font-variant-numeric: tabular-nums;
   color: var(--dsw-alias-label-primary);
 }
+
+/* The compaction action sits on its own row under the legend rows, separated
+   so the reading and the action never share a line. */
+.footer {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.compact {
+  display: block;
+  width: 100%;
+  padding: 4px 8px;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.compact:hover:not(:disabled) {
+  color: var(--dsw-alias-label-primary);
+}
+
+.compact:disabled {
+  cursor: default;
+  opacity: 0.6;
+}

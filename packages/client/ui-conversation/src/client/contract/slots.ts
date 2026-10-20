@@ -466,6 +466,12 @@ export interface ComposerBarInjected {
   retryFileUpload: ((id: DraftAttachmentId) => void) | undefined
   toggleCommandMenu: ((selection: EditSelection) => void) | undefined
   stop: (() => void) | undefined
+  /**
+   * Request one manual context compaction (`/compact`) against this Session.
+   * Absent without a Session. Settles once the host admits or refuses the
+   * command; refusals are reported through the composer notice.
+   */
+  compact: (() => Promise<void>) | undefined
   hooks: {
     /** Readable sequence while the fixed Stop command is registered. */
     stopShortcut: ObservableSnapshot<readonly string[]>

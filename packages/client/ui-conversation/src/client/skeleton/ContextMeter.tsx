@@ -51,12 +51,20 @@ export interface ContextMeterProps {
   useProjection: UseProjection
   /** The owning bar's locale seat, passed down as a plain prop. */
   t: ComposerBarProps['t']
+  /**
+   * Request one manual context compaction (`/compact`) against the current
+   * Session; absent without one (the panel renders no compact action).
+   * Settles once the host admits or refuses the command; refusals are
+   * reported through the composer notice, not this promise.
+   */
+  compact?: (() => Promise<void>) | undefined
 }
 
-export function ContextMeter({ useProjection, t }: ContextMeterProps) {
+export function ContextMeter({ useProjection, t, compact }: ContextMeterProps) {
   const pressure = useProjection('contextPressure')
   const breakdown = useProjection('contextBreakdown')
   const [open, setOpen] = useState(false)
+  const [compacting, setCompacting] = useState(false)
   const rootRef = useRef<HTMLSpanElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const context = contextOccupancy(pressure)
@@ -171,6 +179,22 @@ export function ContextMeter({ useProjection, t }: ContextMeterProps) {
                 </div>
               ))}
             </dl>
+          )}
+          {compact !== undefined && (
+            <div className={css.footer}>
+              <button
+                type="button"
+                className={css.compact}
+                disabled={compacting}
+                onClick={() => {
+                  if (compacting) return
+                  setCompacting(true)
+                  void compact().finally(() => { setCompacting(false) })
+                }}
+              >
+                {t(compacting ? 'context.compactBusy' : 'context.compact')}
+              </button>
+            </div>
           )}
         </div>,
         document.body,

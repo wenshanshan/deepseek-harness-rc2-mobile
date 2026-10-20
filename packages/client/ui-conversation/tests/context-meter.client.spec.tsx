@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { en as commonEn, zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/index.ts'
@@ -163,4 +163,38 @@ describe('ContextMeter', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(view.queryByRole('dialog')).toBeNull()
   })
+
+  it('omits the compact action when the Session has none', () => {
+    const view = meter({
+      contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
+      contextBreakdown: BREAKDOWN,
+    })
+    fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
+    expect(view.queryByRole('dialog')!.textContent).not.toContain('压缩上下文')
+    expect(view.queryByRole('button', { name: '压缩上下文' })).toBeNull()
+  })
+
+  it('runs the compact request, disables the action while pending, and restores it when settled', async () => {
+    let release: (() => void) | undefined
+    const pending = new Promise<void>((resolve) => { release = resolve })
+    const compact = vi.fn(() => pending)
+    const view = render(
+      <ContextMeter useProjection={projections(values)} t={t} compact={compact} />,
+    )
+    fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
+    const action = view.getByRole('button', { name: '压缩上下文' }) as HTMLButtonElement
+    fireEvent.click(action)
+    expect(compact).toHaveBeenCalledOnce()
+    expect(view.getByRole('button', { name: '压缩中…' }).getAttribute('disabled')).not.toBeNull()
+    release!()
+    await vi.waitFor(() => {
+      expect(view.queryByRole('button', { name: '压缩中…' })).toBeNull()
+    })
+    expect(view.queryByRole('button', { name: '压缩上下文' })).not.toBeNull()
+  })
 })
+
+const values = {
+  contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
+  contextBreakdown: BREAKDOWN,
+}

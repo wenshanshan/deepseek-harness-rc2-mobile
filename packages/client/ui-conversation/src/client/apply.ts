@@ -32,6 +32,7 @@ import type { IConversation } from './service.ts'
 import { ComposerBlockRegistry } from './input/blocks.ts'
 import type { ComposerBlock } from './contract/composer-blocks.ts'
 import { InputHub } from './input/hub.ts'
+import type { SessionInputShell } from './input/facade.ts'
 import { ComposerSubmissionPolicy } from './input/submission-policy.ts'
 import { queueDockEntry } from './queue/QueueDock.tsx'
 import { EnterBehaviorRow } from './settings/EnterBehaviorRow.tsx'
@@ -260,6 +261,29 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       // Stop failure is published through Session promptError.
     })
   }
+  // Compact is an admission-only call: the host executor durably logs the
+  // command lifecycle and the transcript renders the outcome, so the client
+  // reports only admission failures (transport, or a host without the
+  // command) through the composer notice.
+  const compact = async (sessionId: SessionId, shell: SessionInputShell): Promise<void> => {
+    const live = sessions.binding(sessionId)?.session
+    if (live === undefined) {
+      shell.notify('error', t('context.compactUnavailable'))
+      return
+    }
+    try {
+      const result = await live.command('/compact')
+      if (!result.ok) {
+        shell.notify('error', `${result.error.message} (${result.error.code})`)
+        return
+      }
+      if (!result.value.matched) shell.notify('error', t('context.compactUnavailable'))
+    } catch (error: unknown) {
+      // Command assembly faults: report the diagnostic; the transcript stays
+      // untouched because the host never admitted the command.
+      shell.notify('error', error instanceof Error ? error.message : String(error))
+    }
+  }
   const stopShortcut = createSnapshotStore<readonly string[]>([])
   ctx.inject(['shortcuts'], (scope) => {
     const fixedInputs: readonly ShortcutFixedCommand[] = [
@@ -469,6 +493,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
           retryFileUpload: undefined,
           toggleCommandMenu: undefined,
           stop: undefined,
+          compact: undefined,
           hooks: {
             stopShortcut,
             busyEnter: submissionPolicy.busyEnter,
@@ -545,6 +570,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
             })
           },
         stop: () => { stop(sessionId) },
+        compact: () => compact(sessionId, shell),
         hooks: {
           stopShortcut,
           busyEnter: submissionPolicy.busyEnter,
