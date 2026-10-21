@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { PendingSubmission } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { PropsRenderFactories } from '@deepseek-ai/dsh-client-ui-slots'
@@ -128,19 +128,56 @@ function ModelRetryItem({ node, active, t }: {
   )
 }
 
-/** Persistent, turn-positioned feedback for a terminal failure. */
-function TurnErrorItem({ node, t }: {
+/** Persistent, turn-positioned feedback for a terminal failure.
+ * Terminal failures that can resume (non-sign-out, non-quota) show a Retry
+ * action; the click sends one short continuation prompt into the Session.
+ */
+function TurnErrorItem({ node, t, resume }: {
   node: TurnErrorNode
   t: ChatViewSlotProps['t']
+  resume: (text: string) => Promise<unknown>
 }) {
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const retryable = node.code !== 'ACCOUNT_SIGNED_OUT'
+    && node.code !== 'ACCOUNT_SIGN_IN_REQUIRED'
+    && node.code !== 'QUOTA'
+    && node.code !== 'ACCOUNT_QUOTA'
+    && node.code !== 'AUTH'
+  const onRetry = useCallback(() => {
+    if (busy) return
+    // A fresh random continuation phrase on every retry; the split produces a
+    // stable list from the localized dictionary entry.
+    const phrases = t('message.turnError.resumePhrases').split('|')
+    const phrase = phrases[Math.floor(Math.random() * phrases.length)] ?? ''
+    setBusy(true)
+    setFailed(false)
+    void resume(phrase).then(
+      () => { setBusy(false) },
+      () => {
+        setBusy(false)
+        setFailed(true)
+      },
+    )
+  }, [busy, resume, t])
+  const stopped = node.code === 'ACCOUNT_SIGNED_OUT' || node.code === 'INTERRUPTED'
   return (
-    <div className={css.turnErrorRow} role="status">
-      <StateDot state="error" className={css.turnErrorDot} />
-      <div className={css.turnErrorCopy}>
-        <span className={css.turnErrorTitle}>{node.code === 'ACCOUNT_SIGNED_OUT' || node.code === 'INTERRUPTED' ? t('message.taskStopped') : t('message.turnError')}</span>
-        <span className={css.turnErrorMessage}>{failureMessage(node.message, node.code, t)}</span>
+    <div className={css.turnErrorRow}>
+      <div className={css.turnErrorStatus} role="status">
+        <StateDot state="error" className={css.turnErrorDot} />
+        <div className={css.turnErrorCopy}>
+          <span className={css.turnErrorTitle}>{stopped ? t('message.taskStopped') : t('message.turnError')}</span>
+          <span className={css.turnErrorMessage}>{failed
+            ? `${failureMessage(node.message, node.code, t)}${t('message.turnError.resumeFails')}`
+            : failureMessage(node.message, node.code, t)}</span>
+        </div>
+        {node.code !== undefined && node.code !== 'INTERRUPTED' && <code className={css.turnErrorCode}>{node.code}</code>}
       </div>
-      {node.code !== undefined && node.code !== 'INTERRUPTED' && <code className={css.turnErrorCode}>{node.code}</code>}
+      {retryable && (
+        <button type="button" className={css.turnErrorResume} disabled={busy} onClick={onRetry}>
+          {busy ? t('message.turnError.resumeBusy') : t('message.turnError.resume')}
+        </button>
+      )}
     </div>
   )
 }
@@ -346,8 +383,8 @@ export const RetryNodeView = memo(function RetryNodeView({ node, t }: ChatNodeVi
 })
 
 /** Terminal turn-error keyed Chat renderer. */
-export const TurnErrorNodeView = memo(function TurnErrorNodeView({ node, t }: ChatNodeViewProps<'turn-error'>) {
-  return <TurnErrorItem node={node.data} t={t} />
+export const TurnErrorNodeView = memo(function TurnErrorNodeView({ node, t, resume }: ChatNodeViewProps<'turn-error'>) {
+  return <TurnErrorItem node={node.data} t={t} resume={resume} />
 })
 
 /** Max-tokens turn-end notice keyed Chat renderer. */

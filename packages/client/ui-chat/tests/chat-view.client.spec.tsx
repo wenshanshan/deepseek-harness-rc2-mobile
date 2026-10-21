@@ -413,6 +413,7 @@ function makeHarness(
     read: () => savedScroll,
   }
   const forkAt = vi.fn()
+  const resume = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve())
   // Rows and the harness must observe the same chat-store instance.
   const chat = createChatStore().create()
   const transcriptView = createSnapshotStore<TranscriptViewMode>('compact')
@@ -512,6 +513,7 @@ function makeHarness(
     loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
     chatScroll,
     forkAt,
+    resume,
     // Absent-service default; mention tests override with a real resolver.
     fileMentions: () => undefined,
     t,
@@ -538,7 +540,7 @@ function makeHarness(
     set, setSession: session.set, setChat: chatSource.set, ChatView, props,
     openFile, openUserFile, loadOlder, loadThrough, openView,
     setOutline: (value: unknown) => { outlineValue = value },
-    chatScroll, forkAt, toolOwners,
+    chatScroll, forkAt, resume, toolOwners,
     setPerformanceUsage: (mode: 'compact' | 'detailed') => { performanceUsage.set(mode) },
     setGrouped: (value: ConversationGroupedView<ProcessGroupData> | undefined) => {
       grouped = value
@@ -2374,6 +2376,24 @@ describe('ChatView', () => {
     expect(view.queryByRole('alert')).toBeNull()
     expect(view.queryByRole('dialog')).toBeNull()
     expect(view.queryByRole('button', { name: '去充值' })).toBeNull()
+  })
+
+  it('shows a Continue affordance on retryable failures that sends one continuation phrase', async () => {
+    const h = makeHarness({ nodes: [
+      user(1, 'try'), turnError(2, 'AUTH'), turnError(3), turnError(4, 'QUOTA'), turnError(5, 'INTERRUPTED'),
+    ] })
+    const view = render(<h.ChatView {...h.props} />)
+    // AUTH and QUOTA are terminal realities: no retry affordance; only the
+    // generic (plugin exploded) and INTERRUPTED failures carry Continue.
+    const retryButtons = view.getAllByRole('button', { name: '继续' })
+    expect(retryButtons).toHaveLength(2)
+    // The click sends exactly one continuation phrase drawn from the localized list.
+    fireEvent.click(retryButtons[0]!)
+    await waitFor(() => { expect(h.resume).toHaveBeenCalledTimes(1) })
+    const sent = h.resume.mock.calls[0]![0]
+    expect(zh['message.turnError.resumePhrases'].split('|')).toContain(sent)
+    // The send settles and the affordance returns to its idle label.
+    await waitFor(() => { expect(view.getAllByRole('button', { name: '继续' })).toHaveLength(2) })
   })
 
   it('renders the max-tokens notice with localized guidance, distinct from turn errors', () => {

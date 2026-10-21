@@ -293,6 +293,14 @@ export function apply(ctx: Context): void {
                 // Fork or child-title failure leaves the source view unchanged.
               })
           },
+          // Terminal-failure retry resumes the current session with a short
+          // continuation prompt (queue delivery). A rejection or hostile
+          // admission surfaces through the returned rejection and keeps the
+          // failure row visible.
+          resume: async (text) => {
+            const result = await session.prompt([{ type: 'text', text }], 'queue')
+            if (!result.ok) throw new Error(`resume failed: ${result.error.code}: ${result.error.message}`)
+          },
         }
       },
     }, ChatView)
