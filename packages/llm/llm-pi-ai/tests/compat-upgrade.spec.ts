@@ -52,10 +52,19 @@ describe('pi-ai gateway compatibility declarations', () => {
 
   it.each([
     'supportsMidConvoEffort', 'allowedFallbackModels', 'supportsMidConvoSystemMessages',
-    'supportsMidConvoToolAdditions', 'supportsMidConvoToolChanges', 'sessionAffinityFormat',
+    'supportsMidConvoToolAdditions', 'supportsMidConvoToolChanges',
   ])('withholds catalog-owned %s', (field) => {
     expect(() => resolved({ [field]: true }, 'anthropic-messages'))
       .toThrow(/which is not configurable here/)
+  })
+
+  it('accepts session-affinity switches and resolves them onto the model', () => {
+    expect(resolved({ sendSessionAffinityHeaders: true, sessionAffinityFormat: 'openrouter' }))
+      .toMatchObject({ sendSessionAffinityHeaders: true, sessionAffinityFormat: 'openrouter' })
+  })
+
+  it('rejects an invalid session-affinity format', () => {
+    expect(() => configured({ sessionAffinityFormat: 'openai' })).toThrow()
   })
 
   it('withholds Mistral conversation capabilities', () => {

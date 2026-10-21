@@ -274,6 +274,8 @@ const compatProfile: z<PiAiCompatProfile> = z.object({
   vllmPriority: z.number().step(1),
   supportsMaxOutputTokens: z.boolean(),
   supportsStrictMode: z.boolean(),
+  sendSessionAffinityHeaders: z.boolean(),
+  sessionAffinityFormat: z.union(['openrouter']),
   cacheControlFormat: z.union(CACHE_CONTROL_FORMATS),
   supportsLongCacheRetention: z.boolean(),
   supportsEagerToolInputStreaming: z.boolean(),

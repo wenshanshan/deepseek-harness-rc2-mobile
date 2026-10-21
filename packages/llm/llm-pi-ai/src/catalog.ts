@@ -269,10 +269,10 @@ const COMPLETIONS_COMPAT_GATE = {
   vercelGatewayRouting: 'withhold',
   zaiToolStream: 'withhold',
   supportsOpenAIGrammarTools: 'withhold',
-  sendSessionAffinityHeaders: 'withhold',
+  sendSessionAffinityHeaders: 'offer',
   supportsMidConvoSystemMessages: 'withhold',
   supportsMidConvoToolAdditions: 'withhold',
-  sessionAffinityFormat: 'withhold',
+  sessionAffinityFormat: 'offer',
 } as const satisfies Record<keyof OpenAICompletionsCompat, CompatDisposition>
 
 /** Disposition of every `OpenAIResponsesCompat` field; a drift gate like the one above. */
@@ -281,7 +281,7 @@ const RESPONSES_COMPAT_GATE = {
   supportsMaxOutputTokens: 'offer',
   supportsStrictMode: 'offer',
   supportsLongCacheRetention: 'offer',
-  sessionAffinityFormat: 'withhold',
+  sessionAffinityFormat: 'offer',
   supportsOpenAIGrammarTools: 'withhold',
   supportsAdditionalTools: 'withhold',
   supportsToolSearch: 'withhold',
@@ -298,8 +298,8 @@ const ANTHROPIC_COMPAT_GATE = {
   forceAdaptiveThinking: 'offer',
   allowEmptySignature: 'offer',
   supportsStrictTools: 'offer',
-  sendSessionAffinityHeaders: 'withhold',
-  sessionAffinityFormat: 'withhold',
+  sendSessionAffinityHeaders: 'offer',
+  sessionAffinityFormat: 'offer',
   supportsMidConvoSystemMessages: 'withhold',
   supportsMidConvoToolChanges: 'withhold',
   supportsMidConvoEffort: 'withhold',
@@ -438,6 +438,23 @@ export interface PiAiCompatProfile {
    * `openai-completions`, the three Responses protocols, `bedrock-converse-stream`.
    */
   supportsStrictMode?: boolean
+  /**
+   * Whether the endpoint accepts session-affinity headers carrying the loop's
+   * `options.sessionId`; `openai-completions`. Gateways that group requests by
+   * one of these headers use it for session routing and sticky account binding.
+   */
+  sendSessionAffinityHeaders?: boolean
+  /**
+   * Session-affinity header format. Typed via `NonNullable<UpstreamCompat[…]>`
+   * so the {@link EveryProfileFieldMatchesUpstream} drift gate holds in both
+   * directions under `exactOptionalPropertyTypes`: the Anthropic member of the
+   * intersection narrows the union to `"openrouter"` (the spelling that sends
+   * `x-session-id`), and `NonNullable` strips the `undefined` the intersection
+   * index would otherwise restate — an optional property is already
+   * absent-able, and an explicit `undefined` member would widen it past the
+   * upstream `Pick` and fail the gate.
+   */
+  sessionAffinityFormat?: NonNullable<UpstreamCompat['sessionAffinityFormat']>
   /** Prompt-cache marker convention; `openai-completions`. */
   cacheControlFormat?: NonNullable<OpenAICompletionsCompat['cacheControlFormat']>
   /**
