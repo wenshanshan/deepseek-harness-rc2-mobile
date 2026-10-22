@@ -13,6 +13,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { ShortcutCommandId, ShortcutFixedCommand } from '@deepseek-ai/dsh-client-shortcuts/client'
+import type { ModelSelectionProjection } from '@deepseek-ai/dsh-api-session-controller/types'
 import { UiConversation } from './conversation/assembly.ts'
 import { UserText, PlainUserText, SessionReference } from './user-text/UserText.tsx'
 import { sessionReferenceRule } from './user-text/session-reference-rule.ts'
@@ -37,6 +38,8 @@ import { ComposerSubmissionPolicy } from './input/submission-policy.ts'
 import { queueDockEntry } from './queue/QueueDock.tsx'
 import { EnterBehaviorRow } from './settings/EnterBehaviorRow.tsx'
 import type { EnterBehaviorRowInjected } from './settings/EnterBehaviorRow.tsx'
+import { QuickPhrasesRow, type QuickPhrasesRowInjected } from './settings/QuickPhrasesRow.tsx'
+import { QuickPhrasesStore } from './quick-phrases.ts'
 import { ConversationRoot } from './skeleton/ConversationRoot.tsx'
 import { ConversationContent } from './skeleton/ConversationContent.tsx'
 import { ConversationPanel } from './skeleton/ConversationPanel.tsx'
@@ -95,6 +98,28 @@ const EMPTY_FILE_UPLOADS: DraftFileUploads = {}
 const ABSENT_FILE_UPLOADS = {
   getSnapshot: () => EMPTY_FILE_UPLOADS,
   subscribe: () => () => {},
+}
+
+/** pi-ai settings namespace owning the gateway model profiles. */
+const PI_AI_NAMESPACE = 'llm-pi-ai'
+
+/** Narrow an unknown section member to a plain object. */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined
+}
+
+/** Narrow an unknown section member to an array. */
+function asArray(value: unknown): readonly unknown[] | undefined {
+  return Array.isArray(value) ? value : undefined
+}
+
+/** Context window size label for the set-confirmation notice (128K / 256K / 512K / 1M). */
+function windowLabel(tokens: number): string {
+  if (tokens >= 1_000_000 && tokens % 1_000_000 === 0) return `${String(tokens / 1_000_000)}M`
+  if (tokens >= 1_000 && tokens % 1_000 === 0) return `${String(tokens / 1_000)}K`
+  return String(tokens)
 }
 
 /**
@@ -191,8 +216,11 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   const submissionPolicy = new ComposerSubmissionPolicy(
     ctx.configForms.get<ConversationSettings>(CONVERSATION_SETTINGS_NAMESPACE),
   )
+  const quickPhrases = new QuickPhrasesStore(
+    ctx.configForms.get<ConversationSettings>(CONVERSATION_SETTINGS_NAMESPACE),
+  )
 
-  ctx.effect(() => () => { submissionPolicy.dispose() })
+  ctx.effect(() => () => { submissionPolicy.dispose(); quickPhrases.dispose() })
 
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item',
@@ -204,6 +232,16 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       setBusyEnter: (behavior) => { submissionPolicy.setBusyEnter(behavior) },
     }),
   }, EnterBehaviorRow))
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'composer-quick-phrases',
+    order: 30,
+    locale: NS,
+    inject: (): QuickPhrasesRowInjected => ({
+      hooks: { quickPhrases: quickPhrases.quickPhrases },
+      setQuickPhrases: (phrases) => { quickPhrases.set(phrases) },
+    }),
+  }, QuickPhrasesRow))
 
   const viewTabs = (): ViewTab[] => {
     const tabs: ViewTab[] = []
@@ -281,6 +319,49 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     } catch (error: unknown) {
       // Command assembly faults: report the diagnostic; the transcript stays
       // untouched because the host never admitted the command.
+      shell.notify('error', error instanceof Error ? error.message : String(error))
+    }
+  }
+  // Context-window quick-set: mutate the current pi-ai profile's matched
+  // `models` entry through the same settings seam the Models page writes. Only
+  // a model with an explicit stored `models` entry is addressable; the window
+  // only reports the new value on the next request, so the notice says so.
+  // Absent provider/model or a non-pi-ai route is a no-op surfaced through the
+  // composer notice.
+  const setContextWindow = async (sessionId: SessionId, shell: SessionInputShell, tokens: number): Promise<void> => {
+    const live = sessions.binding(sessionId)?.session
+    const selection = live?.projections.faceOf('modelSelection').getSnapshot() as ModelSelectionProjection | undefined
+    const route = selection?.next ?? selection?.lastUsed
+    if (live === undefined || route === null || route === undefined) {
+      shell.notify('error', t('context.windowUnavailable'))
+      return
+    }
+    const form = ctx.configForms.get<Record<string, unknown>>(PI_AI_NAMESPACE)
+    const section = form.getSnapshot()
+    // Settings write ops index into the user override layer (the entry's own
+    // config), so the model index must come from that same layer. A model only
+    // the composed base supplies has no addressable index there and is refused
+    // rather than mis-written against the resolved array.
+    const providers = asRecord(section.user)
+    const provider = providers?.[route.provider]
+    const profile = asRecord(provider)
+    const index = asArray(profile?.['models'])?.findIndex(
+      model => asRecord(model)?.['id'] === route.model,
+    )
+    if (index === undefined || index < 0) {
+      shell.notify('error', t('context.windowUnavailable'))
+      return
+    }
+    try {
+      const accepted = await form.mutate([{
+        op: 'set', path: ['providers', route.provider, 'models', String(index), 'contextWindow'], value: tokens,
+      }])
+      if (!accepted) {
+        shell.notify('error', t('context.windowUnavailable'))
+        return
+      }
+      shell.notify('info', t('context.windowSetInfo', { size: windowLabel(tokens) }))
+    } catch (error: unknown) {
       shell.notify('error', error instanceof Error ? error.message : String(error))
     }
   }
@@ -494,6 +575,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
           toggleCommandMenu: undefined,
           stop: undefined,
           compact: undefined,
+          setContextWindow: undefined,
           hooks: {
             stopShortcut,
             busyEnter: submissionPolicy.busyEnter,
@@ -501,6 +583,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
             notices: ABSENT_NOTICES,
             lexicon: ABSENT_LEXICON,
             menuLauncher: ABSENT_MENU_LAUNCHER,
+            quickPhrases: quickPhrases.quickPhrases,
           },
         }
       }
@@ -571,6 +654,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
           },
         stop: () => { stop(sessionId) },
         compact: () => compact(sessionId, shell),
+        setContextWindow: tokens => setContextWindow(sessionId, shell, tokens),
         hooks: {
           stopShortcut,
           busyEnter: submissionPolicy.busyEnter,
@@ -578,6 +662,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
           notices: shell.notices,
           lexicon: shell.lexicon,
           menuLauncher: inputTriggers?.launcher ?? ABSENT_MENU_LAUNCHER,
+          quickPhrases: quickPhrases.quickPhrases,
         },
       }
     },

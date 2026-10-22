@@ -472,6 +472,13 @@ export interface ComposerBarInjected {
    * command; refusals are reported through the composer notice.
    */
   compact: (() => Promise<void>) | undefined
+  /**
+   * Set the current pi-ai model's context window to an exact token count.
+   * Absent when the current model has no pi-ai settings profile. Settles
+   * once the durable write is accepted; refusals and confirmations are
+   * reported through the composer notice.
+   */
+  setContextWindow: ((tokens: number) => Promise<void>) | undefined
   hooks: {
     /** Readable sequence while the fixed Stop command is registered. */
     stopShortcut: ObservableSnapshot<readonly string[]>
@@ -485,6 +492,8 @@ export interface ComposerBarInjected {
     notices: ObservableSnapshot<InputNotice | null>
     lexicon: ObservableSnapshot<ReadonlyMap<'/' | '@', readonly string[]>>
     menuLauncher: ObservableSnapshot<string | null>
+    /** Live user-owned quick phrases, in order (empty = no tags). */
+    quickPhrases: ObservableSnapshot<readonly string[]>
   }
 }
 

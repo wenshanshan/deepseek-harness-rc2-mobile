@@ -46,8 +46,8 @@ export type InputBarProps = ComposerBarProps
 export const InputBar = memo(function InputBar({
   useSession, useInput, inputActions, keyboard, addFiles, removeAttachment, resolveDraftAttachments,
   retryFileUpload,
-  toggleCommandMenu, stop, compact, t,
-  renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut,
+  toggleCommandMenu, stop, compact, setContextWindow, t,
+  renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut, useQuickPhrases,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
   workspacePickerOpen = false, onRequestWorkspace,
   placeholder, accessory,
@@ -56,6 +56,7 @@ export const InputBar = memo(function InputBar({
   const notice = useNotices(s => s)
   const busyEnter = useBusyEnter(s => s)
   const stopKeys = useStopShortcut(keys => keys)
+  const quickPhrases = useQuickPhrases(value => value)
   void useLexicon // hook seat stays bound by the inject compartment; text-ref decoration rides the shell's editor transforms
   const commandMenuOpen = useMenuLauncher(source => source === 'command')
   const [activity, setActivity] = useState(false)
@@ -301,6 +302,14 @@ export const InputBar = memo(function InputBar({
     toggleCommandMenu?.(keyboard.caretSpan())
   }
 
+  // Clicking a quick-phrase tag fills the draft at the caret without sending.
+  const onQuickPhrase = (phrase: string): void => {
+    if (keyboard === undefined || inputActions === undefined) return
+    const span = inputActions.captureInsertion()
+    inputActions.insertText(phrase, span)
+    if (editor !== null) focusDraftEditor(editor, revealSelection)
+  }
+
   // The no-session Workspace trigger: the resident editable div acts as the
   // picker trigger for keyboard users (no editor is bound in this state).
   const onWorkspaceKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
@@ -381,6 +390,21 @@ export const InputBar = memo(function InputBar({
           anchor={cardRef.current}
           onDone={dismissToast}
         />
+      )}
+      {live && quickPhrases.length > 0 && (
+        <div className={css.quickPhrases} data-composer-quick-phrases>
+          {quickPhrases.map((phrase, index) => (
+            <button
+              key={`${index}:${phrase}`}
+              type="button"
+              className={css.quickPhrase}
+              onMouseDown={keepFocus}
+              onClick={() => { onQuickPhrase(phrase) }}
+            >
+              {phrase}
+            </button>
+          ))}
+        </div>
       )}
       {notice?.level === 'info' && (
         <div className={css.notice} role="status">
@@ -521,7 +545,7 @@ export const InputBar = memo(function InputBar({
         {variant === 'composer' && input !== undefined && sessionId !== undefined
           ? renderSlot('conversation.composer.dock', {})
           : null}
-        {activity ? null : <ContextMeter useProjection={useProjection} t={t} compact={compact} />}
+        {activity ? null : <ContextMeter useProjection={useProjection} t={t} compact={compact} setContextWindow={setContextWindow} />}
       </div>
     </div>
   )

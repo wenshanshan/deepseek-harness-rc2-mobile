@@ -192,6 +192,61 @@ describe('ContextMeter', () => {
     })
     expect(view.queryByRole('button', { name: '压缩上下文' })).not.toBeNull()
   })
+
+  it('omits the window tags without a setContextWindow callback', () => {
+    const view = meter(values)
+    fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
+    expect(view.queryByRole('dialog')!.textContent).not.toContain('上下文窗口')
+  })
+
+  it('shows the four selectable window tags, marking the current tier', () => {
+    // Current window 256K with 120K used.
+    const view = render(
+      <ContextMeter
+        useProjection={projections({ contextPressure: { pressureTokens: 120_000, contextWindow: 256_000 } })}
+        t={t}
+        setContextWindow={vi.fn(() => Promise.resolve())}
+      />,
+    )
+    fireEvent.click(view.getByRole('button', { name: '上下文已用 47%' }))
+    const sizes = { '128K': false, '256K': true, '512K': false, '1M': false }
+    for (const [label, current] of Object.entries(sizes)) {
+      const button = view.getByRole('button', { name: `将上下文窗口设为 ${label}` }) as HTMLButtonElement
+      expect(button.getAttribute('aria-pressed')).toBe(current ? 'true' : 'false')
+    }
+  })
+
+  it('disables a tier at or below current usage', () => {
+    const view = render(
+      <ContextMeter
+        useProjection={projections({ contextPressure: { pressureTokens: 128_000, contextWindow: 128_000 } })}
+        t={t}
+        setContextWindow={vi.fn(() => Promise.resolve())}
+      />,
+    )
+    fireEvent.click(view.getByRole('button', { name: '上下文已用 100%' }))
+    expect((view.getByRole('button', { name: '将上下文窗口设为 128K' }) as HTMLButtonElement).getAttribute('disabled'))
+      .not.toBeNull()
+  })
+
+  it('calls setContextWindow with the clicked tier and disables all tags while pending', async () => {
+    let release: (() => void) | undefined
+    const pending = new Promise<void>((resolve) => { release = resolve })
+    const setContextWindow = vi.fn(() => pending)
+    const view = render(
+      <ContextMeter useProjection={projections(values)} t={t} setContextWindow={setContextWindow} />,
+    )
+    fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
+    fireEvent.click(view.getByRole('button', { name: '将上下文窗口设为 512K' }))
+    expect(setContextWindow).toHaveBeenCalledWith(512_000)
+    expect((view.getByRole('button', { name: '将上下文窗口设为 128K' }) as HTMLButtonElement).getAttribute('disabled'))
+      .not.toBeNull()
+    release!()
+    await vi.waitFor(() => {
+      expect((view.getByRole('button', { name: '将上下文窗口设为 128K' }) as HTMLButtonElement).getAttribute('disabled'))
+        .toBeNull()
+    })
+  })
 })
 
 const values = {

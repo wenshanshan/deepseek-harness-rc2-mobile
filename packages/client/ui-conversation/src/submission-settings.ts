@@ -17,15 +17,24 @@ export type BusyEnterBehavior = typeof BUSY_ENTER_BEHAVIORS[number]
 /** Default preserves Enter-as-Queue for running conversations. */
 export const DEFAULT_BUSY_ENTER_BEHAVIOR: BusyEnterBehavior = 'queue'
 
+/** Field carrying the user's ordered quick-phrase list. */
+export const QUICK_PHRASES_FIELD = 'quickPhrases'
+
+/** Default empty quick-phrase list (shows no tags). */
+export const DEFAULT_QUICK_PHRASES: readonly string[] = []
+
 /** Durable conversation section shared by the Host schema and the browser scope. */
 export interface ConversationSettings {
   /** Delivery mode for plain Enter while the addressed agent is busy. */
   busyEnter: BusyEnterBehavior
+  /** User-owned quick phrases shown above the composer, in order. */
+  quickPhrases: readonly string[]
 }
 
 /** Durable conversation schema; also the wire envelope the browser scope validates against. */
 export const ConversationSettingsFields = {
   [BUSY_ENTER_FIELD]: z.union([...BUSY_ENTER_BEHAVIORS]).default(DEFAULT_BUSY_ENTER_BEHAVIOR),
+  [QUICK_PHRASES_FIELD]: z.array(z.string()).default([...DEFAULT_QUICK_PHRASES]),
 }
 
 /** Schema for shared configuration values. */

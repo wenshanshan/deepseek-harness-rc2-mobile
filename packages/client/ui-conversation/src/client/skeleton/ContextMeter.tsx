@@ -18,6 +18,9 @@ import css from './ContextMeter.module.css'
 const RADIUS = 5.5
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
+/** Selectable context-window sizes, in tokens (128K / 256K / 512K / 1M). */
+const WINDOW_SIZES = [128_000, 256_000, 512_000, 1_000_000] as const
+
 /**
  * Marker the localized occupancy sentence is split on, so the panel headline
  * keeps the reading in its own tone while each locale still owns the word
@@ -58,13 +61,21 @@ export interface ContextMeterProps {
    * reported through the composer notice, not this promise.
    */
   compact?: (() => Promise<void>) | undefined
+  /**
+   * Set the current pi-ai model's context window to an exact token count.
+   * Failures and success are reported through the composer notice by the
+   * injected callback; this surface only owns the pending state. Absent when
+   * the current model has no pi-ai settings profile.
+   */
+  setContextWindow?: ((tokens: number) => Promise<void>) | undefined
 }
 
-export function ContextMeter({ useProjection, t, compact }: ContextMeterProps) {
+export function ContextMeter({ useProjection, t, compact, setContextWindow }: ContextMeterProps) {
   const pressure = useProjection('contextPressure')
   const breakdown = useProjection('contextBreakdown')
   const [open, setOpen] = useState(false)
   const [compacting, setCompacting] = useState(false)
+  const [pendingSize, setPendingSize] = useState<number | null>(null)
   const rootRef = useRef<HTMLSpanElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const context = contextOccupancy(pressure)
@@ -179,6 +190,35 @@ export function ContextMeter({ useProjection, t, compact }: ContextMeterProps) {
                 </div>
               ))}
             </dl>
+          )}
+          {setContextWindow !== undefined && (
+            <div className={css.windowSection}>
+              <span className={css.windowLabel}>{t('context.window')}</span>
+              <div className={css.windowTags}>
+                {WINDOW_SIZES.map((size) => {
+                  const disabled = pendingSize !== null || size <= context.usedTokens
+                  const current = size === context.contextWindow
+                  const busy = pendingSize === size
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      className={`${css.windowTag}${current ? ` ${css.windowTagCurrent}` : ''}`}
+                      aria-label={t('context.windowSet', { size: formatTokens(size, t) })}
+                      aria-pressed={current}
+                      disabled={disabled}
+                      onClick={() => {
+                        if (disabled) return
+                        setPendingSize(size)
+                        void setContextWindow(size).finally(() => { setPendingSize(null) })
+                      }}
+                    >
+                      {busy ? t('context.windowSetting') : formatTokens(size, t)}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           )}
           {compact !== undefined && (
             <div className={css.footer}>
