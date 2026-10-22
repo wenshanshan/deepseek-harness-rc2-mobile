@@ -211,11 +211,13 @@ function rowHalf(e: { clientY: number; currentTarget: HTMLElement }): 'before' |
  * disable row dragging entirely — a long press never starts a drag, so the
  * tap that opens a Session can never be misread as a reorder. Desktop and
  * trackpad users keep dragging (the trackpad's own press threshold
- * distinguishes their taps).
+ * distinguishes their taps). Both hover capability and a fine pointer are
+ * required: some touch browsers report hover on a stylus-capable screen, and
+ * the fine-pointer probe keeps their primary input from enabling drag.
  */
 function supportsRowDrag(): boolean {
   return typeof window === 'undefined'
-    || window.matchMedia('(hover: hover)').matches
+    || (window.matchMedia('(hover: hover)').matches && window.matchMedia('(pointer: fine)').matches)
 }
 
 /** Press movement below this many px is a click, not a drag. */

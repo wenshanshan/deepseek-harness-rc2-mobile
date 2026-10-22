@@ -15,6 +15,21 @@ import css from './AccountMenu.module.css'
 /** Account launcher composed by the settings shell. */
 export type AccountMenuProps = PropsRuntime<'settings.launcher'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
 
+/**
+ * Local second-precision build stamp: `YYYY-MM-DD HH:mm:ss` in the viewer's
+ * zone. The build fixes its wall-clock time into the bundle, so the stamp
+ * changes on every rebuild and tells the user at a glance which build runs.
+ * @returns the formatted build time, or `unknown` when the build recorded none.
+ */
+function buildStamp(): string {
+  const epochSeconds = process.env.DSH_CLIENT_BUILD_TIME
+  if (epochSeconds === undefined || !/^\d+$/.test(epochSeconds)) return 'unknown'
+  const date = new Date(Number(epochSeconds) * 1000)
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} `
+    + `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
 /** The signed-in label stays empty while the profile loads.
  * @param props - sidebar geometry, settings navigation and account operations.
  * @returns account menu launcher.
@@ -72,6 +87,9 @@ export function AccountMenu({
         {wide && <span className={css.label}>{signedIn ? label : t('more')}</span>}
       </button>}
       items={[
+        // The build stamp leads the menu: a second-precision build time is the
+        // one version users can read on-device to confirm which build they run.
+        { type: 'label' as const, id: 'build', text: t('buildVersion', { time: buildStamp() }) },
         { id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
           ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut }) },
         { id: 'contact', label: t('contactUs'), icon: <IconPaperPlaneOutlineMedium size={16} /> },

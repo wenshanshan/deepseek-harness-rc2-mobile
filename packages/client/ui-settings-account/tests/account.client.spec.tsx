@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, act, within } from '@testing-library/react'
 import { useMemo, useSyncExternalStore } from 'react'
-import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AccountDetails, AccountView, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
@@ -13,15 +13,23 @@ import type { BonusNotice } from '../src/client/bonus-notices.ts'
 import type { AccountMenuProps } from '../src/client/AccountMenu.tsx'
 import type {} from '../src/client/index.ts'
 import { en, zh, type AccountKey } from '../src/client/locales.ts'
+import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import css from '../src/client/AccountSection.module.css'
 import type { AccountAvatarSnapshot } from '../src/client/account-avatar.ts'
 
-afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs() })
 
 /** One resolved theme snapshot per scheme; the slot's theme hook serves these in the application. */
 const themeOf = (colorScheme: 'light' | 'dark'): ThemeSnapshot => ({
   preference: colorScheme, fontSizes: { text: 14, code: 11, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' },
   active: { id: colorScheme, colorScheme, tokens: {} }, themes: [], revision: 0,
+})
+
+/** Fixed second-precision build stamp so the menu snapshot stays deterministic. */
+const BUILD_TIME = '1780000000'
+
+beforeEach(() => {
+  vi.stubEnv('DSH_CLIENT_BUILD_TIME', BUILD_TIME)
 })
 
 function operationsOf(state: Omit<AccountView, 'links'>, details?: Partial<AccountDetails>, pages?: PlatformPages,
@@ -54,7 +62,7 @@ function mount(state: Omit<AccountView, 'links'>, copy: typeof en | typeof zh = 
     <AccountSection {...globals} {...operations}
       useAccount={selector => selector(operations.hooks.account.getSnapshot())}
       useTheme={selector => selector(operations.hooks.theme.getSnapshot())}
-      close={() => {}} t={key => key in copy ? copy[key as AccountKey] : key} />
+      close={() => {}} t={makeTranslate(copy)} />
     {/* The application renders this from `shell.overlay`; the settings page only requests a page. */}
     {platform !== undefined && pages !== undefined
       && <SharedPlatformHost Globals={globals} pages={pages} platform={platform} copy={copy}
@@ -84,7 +92,7 @@ function SharedPlatformHost({ Globals, pages, platform, copy, refreshAccount }: 
       const page = pages.getSnapshot()?.page
       pages.close()
       if (page === 'top-up') void refreshAccount()
-    }} t={key => key in copy ? copy[key as AccountKey] : key} />
+    }} t={makeTranslate(copy)} />
 }
 
 /**
@@ -98,7 +106,7 @@ async function accountMenu(operations: AccountSectionInjected, snapshot: () => A
   return <AccountMenu {...({} as GlobalStandardProps)} {...operations}
     settingsOpen={settingsOpen} useAccount={selector => selector(snapshot())} wide
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())}
-    openOnboarding={() => {}} openSettings={() => {}} t={key => en[key as AccountKey]} />
+    openOnboarding={() => {}} openSettings={() => {}} t={makeTranslate(en)} />
 }
 
 it.each([en, zh])('renders account cards without inventing profile or balance data', async (copy) => {
@@ -132,7 +140,7 @@ it.each([en, zh].flatMap(copy => ([false, true, 'unknown'] as const).map(running
     hasRunningAccountTasks={async () => { if (running === 'unknown') throw new Error('offline'); return running }}
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={openSettings}
-    t={key => key in copy ? copy[key as AccountKey] : key} />)
+    t={makeTranslate(copy)} />)
   fireEvent.click(screen.getByRole('button', { name: copy.menu }))
   expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([copy.settings, copy.contactUs, copy.signOut])
   await expect(`${screen.getByRole('menu').textContent}\n`).toMatchFileSnapshot(`./expected/menu-${copy === en ? 'en' : 'zh'}.txt`)
@@ -187,7 +195,7 @@ it.each([en, zh])('offers settings, contact and sign-in from the signed-out acco
   render(<AccountMenu {...({} as GlobalStandardProps)} {...operations} settingsOpen={false}
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={openSettings}
-    t={key => key in copy ? copy[key as AccountKey] : key} />)
+    t={makeTranslate(copy)} />)
   const trigger = screen.getByRole('button', { name: copy.menu })
   expect(trigger.textContent).toBe(copy.more)
   expect(trigger.querySelector('svg')).not.toBeNull()
@@ -486,7 +494,7 @@ it.each([en, zh])('shows a localized toast when the account credential expires',
     settingsOpen={false} subscribeSessionExpired={(listener) => { expire = listener; return unsubscribe }}
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={() => {}}
-    t={key => key in copy ? copy[key as AccountKey] : key} />
+    t={makeTranslate(copy)} />
   const view = render(element)
   expect(screen.queryByRole('alert')).toBeNull()
   act(() => { expire!() })
@@ -696,7 +704,7 @@ it.each([en, zh])('shows live model sign-in guidance without replaying it after 
     settingsOpen={false}
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={() => {}}
-    t={key => key in copy ? copy[key as AccountKey] : key} />
+    t={makeTranslate(copy)} />
   const view = render(element)
   expect(screen.queryByRole('alert')).toBeNull()
   act(() => { listener?.() })

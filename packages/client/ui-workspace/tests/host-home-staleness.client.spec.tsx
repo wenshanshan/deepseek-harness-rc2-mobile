@@ -23,7 +23,7 @@ beforeEach(() => {
   // jsdom implements no matchMedia; the default hover-capable answer keeps
   // row dragging wired exactly as on desktop.
   vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
-    matches: query === '(hover: hover)',
+    matches: query === '(hover: hover)' || query === '(pointer: fine)',
   })))
 })
 afterEach(() => {

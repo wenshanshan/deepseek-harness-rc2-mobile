@@ -21,19 +21,23 @@ afterEach(cleanup)
 
 /**
  * jsdom implements no matchMedia; default the guard's device probe to the
- * hover-capable answer the desktop-oriented suite expects, unless a case
- * stubs its own answer (a reduced-motion stub, for example, must also
- * answer the hover query).
+ * hover-capable fine-pointer answer the desktop-oriented suite expects,
+ * unless a case stubs its own answer (a reduced-motion stub, for example,
+ * must also answer the hover and pointer queries).
  */
-let mediaQueries: { hover: boolean; reduced: boolean } = { hover: true, reduced: false }
+let mediaQueries: { hover: boolean; finePointer: boolean; reduced: boolean } = {
+  hover: true, finePointer: true, reduced: false,
+}
 beforeEach(() => {
-  mediaQueries = { hover: true, reduced: false }
+  mediaQueries = { hover: true, finePointer: true, reduced: false }
   vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
     matches: query === '(hover: hover)'
       ? mediaQueries.hover
-      : query === '(prefers-reduced-motion: reduce)'
-        ? mediaQueries.reduced
-        : false,
+      : query === '(pointer: fine)'
+        ? mediaQueries.finePointer
+        : query === '(prefers-reduced-motion: reduce)'
+          ? mediaQueries.reduced
+          : false,
   })))
 })
 afterEach(() => {
@@ -1050,6 +1054,24 @@ describe('workspace browser rows', () => {
     fireEvent.dragStart(row, { dataTransfer })
     expect(drag.start).not.toHaveBeenCalled()
     // The first tap is a plain click that opens the Session.
+    fireEvent.click(row)
+    expect(onOpen).toHaveBeenCalledWith(node.id)
+  })
+
+  it('keeps drag off when a stylus-capable screen reports hover without a fine pointer', () => {
+    // Hover alone is not enough: a touch primary input must not enable drag,
+    // because its tap cannot be told apart from a reorder intent.
+    mediaQueries.hover = true
+    mediaQueries.finePointer = false
+    const node: SessionNode = {
+      id: sid('s1'), title: 'Stylus', blank: false, running: false,
+      runningSubagentCount: 0, completed: false, updatedAt: 0, pinned: false, archived: false,
+    }
+    const drag = dragProps()
+    const onOpen = vi.fn()
+    render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={onOpen} drag={drag} t={t} />)
+    const row = screen.getByRole('treeitem')
+    expect(row.getAttribute('draggable')).toBe('false')
     fireEvent.click(row)
     expect(onOpen).toHaveBeenCalledWith(node.id)
   })

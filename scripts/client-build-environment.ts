@@ -123,9 +123,11 @@ export function repositoryClientBuildEnvironment(
   delete inherited.DSH_CLIENT_COMMIT_HASH
   delete inherited.DSH_CLIENT_GIT_DIRTY
   delete inherited.DSH_CLIENT_VERSION
+  delete inherited.DSH_CLIENT_BUILD_TIME
   const dirty = repositoryGitDirty(root)
   return {
     ...inherited,
+    DSH_CLIENT_BUILD_TIME: String(Math.floor(Date.now() / 1000)),
     DSH_CLIENT_COMMIT_HASH: repositoryCommitHash(root, environment),
     ...(dirty === true ? { DSH_CLIENT_GIT_DIRTY: 'true' } : {}),
     DSH_CLIENT_VERSION: repositoryVersion(root),
@@ -143,6 +145,7 @@ export function officialClientBuildEnvironment(
   environment: NodeJS.ProcessEnv = process.env,
 ): Readonly<Record<`DSH_CLIENT_${string}`, string>> {
   return {
+    DSH_CLIENT_BUILD_TIME: String(Math.floor(Date.now() / 1000)),
     DSH_CLIENT_COMMIT_HASH: repositoryCommitHash(root, environment),
     DSH_CLIENT_VERSION: repositoryVersion(root),
     ...OFFICIAL_CLIENT_BUILD_ENVIRONMENT,

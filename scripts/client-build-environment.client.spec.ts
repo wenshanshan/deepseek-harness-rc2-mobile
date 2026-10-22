@@ -147,18 +147,22 @@ describe('client build environment', () => {
 
     expect(repositoryVersion(fixtureRoot)).toBe('1.2.3-rc.4')
     expect(repositoryGitDirty(fixtureRoot)).toBe(false)
+
     expect(repositoryClientBuildEnvironment(fixtureRoot, {
+      DSH_CLIENT_BUILD_TIME: 'spoofed',
       DSH_CLIENT_COMMIT_HASH: COMMIT_HASH,
       DSH_CLIENT_EXTRA: 'preserved',
       DSH_CLIENT_GIT_DIRTY: 'true',
       DSH_CLIENT_VERSION: 'spoofed',
     })).toEqual({
+      DSH_CLIENT_BUILD_TIME: String(Math.floor(Date.now() / 1000)),
       DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
       DSH_CLIENT_EXTRA: 'preserved',
       DSH_CLIENT_VERSION: '1.2.3-rc.4',
     })
     expect(officialClientBuildEnvironment(fixtureRoot)).toEqual({
       DSH_CLIENT_BUILD_PROFILE: 'official',
+      DSH_CLIENT_BUILD_TIME: String(Math.floor(Date.now() / 1000)),
       DSH_CLIENT_COMMIT_HASH: commit,
       DSH_CLIENT_TITLE: 'DeepSeek Harness',
       DSH_CLIENT_VERSION: '1.2.3-rc.4',
@@ -185,8 +189,10 @@ describe('client build environment', () => {
     write(join(fixtureRoot, 'untracked.txt'), 'untracked\n')
     expect(repositoryGitDirty(fixtureRoot)).toBe(true)
     expect(repositoryClientBuildEnvironment(fixtureRoot, {
+      DSH_CLIENT_BUILD_TIME: 'spoofed',
       DSH_CLIENT_COMMIT_HASH: COMMIT_HASH,
     })).toEqual({
+      DSH_CLIENT_BUILD_TIME: String(Math.floor(Date.now() / 1000)),
       DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
       DSH_CLIENT_GIT_DIRTY: 'true',
       DSH_CLIENT_VERSION: '1.2.3-rc.4',
@@ -208,9 +214,11 @@ describe('client build environment', () => {
 
     expect(repositoryGitDirty(fixtureRoot)).toBeUndefined()
     expect(repositoryClientBuildEnvironment(fixtureRoot, {
+      DSH_CLIENT_BUILD_TIME: 'spoofed',
       DSH_CLIENT_COMMIT_HASH: COMMIT_HASH,
       DSH_CLIENT_GIT_DIRTY: 'true',
     })).toEqual({
+      DSH_CLIENT_BUILD_TIME: String(Math.floor(Date.now() / 1000)),
       DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
       DSH_CLIENT_VERSION: '2.0.0',
     })
