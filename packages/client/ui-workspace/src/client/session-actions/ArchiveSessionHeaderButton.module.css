@@ -1,0 +1,17 @@
+/* Icon-only header utility, matching the header's 28px round controls. */
+.archiveButton {
+  flex: none;
+  width: 28px;
+  padding: 0;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.archiveButton:hover,
+.archiveButton:focus-visible {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.archiveButton svg {
+  width: 15px;
+  height: 15px;
+}

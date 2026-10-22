@@ -29,6 +29,7 @@ import type {
 import {
   ArchiveSessionMenuItem, ArchiveSessionRowButton, SessionArchiveConfirmDialog,
 } from '../src/client/session-actions/ArchiveSession.tsx'
+import { ArchiveSessionHeaderButton } from '../src/client/session-actions/ArchiveSessionHeaderButton.tsx'
 import { ForkSessionMenuItem } from '../src/client/session-actions/ForkSession.tsx'
 import { PinSessionMenuItem, PinSessionRowButton } from '../src/client/session-actions/PinSession.tsx'
 import { RenameSessionMenuItem, SessionRenameDialog } from '../src/client/session-actions/RenameSession.tsx'
@@ -221,6 +222,18 @@ describe('archive action', () => {
     fireEvent.click(screen.getByRole('button', { name: '归档会话' }))
     expect(archive.archiveSession).toHaveBeenCalledWith(sid('one'))
     view.rerender(<ArchiveSessionRowButton {...actionRow} {...archive} useArchived={hook(idSet('one'))} />)
+    fireEvent.click(screen.getByRole('button', { name: '取消归档' }))
+    expect(archive.unarchiveSession).toHaveBeenCalledWith(sid('one'))
+    expect(archive.archiveSession).toHaveBeenCalledOnce()
+  })
+
+  it('header button archives and restores the open Session', () => {
+    const archive = archiveShare()
+    const view = render(<ArchiveSessionHeaderButton {...actionRow} {...archive} />)
+    fireEvent.click(screen.getByRole('button', { name: '归档会话' }))
+    expect(archive.archiveSession).toHaveBeenCalledWith(sid('one'))
+    expect(archive.unarchiveSession).not.toHaveBeenCalled()
+    view.rerender(<ArchiveSessionHeaderButton {...actionRow} {...archive} useArchived={hook(idSet('one'))} />)
     fireEvent.click(screen.getByRole('button', { name: '取消归档' }))
     expect(archive.unarchiveSession).toHaveBeenCalledWith(sid('one'))
     expect(archive.archiveSession).toHaveBeenCalledOnce()
