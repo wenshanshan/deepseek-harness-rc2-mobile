@@ -624,6 +624,57 @@ describe('ConversationRoot resident composer', () => {
     expect(b.view.getByRole('textbox')).toBeTruthy()
   })
 
+  it('a stalled history open times out to the hero instead of hiding the composer forever', () => {
+    vi.useFakeTimers()
+    try {
+      // A blank session whose open never settles while the list summary has
+      // not yet proven it blank: the bounded settling window expires and the
+      // resident composer becomes visible again (hero posture) while the
+      // open keeps running.
+      const b = mount(sessionSnapshotOf({ blank: true, awaitingFirstTurn: true, openState: 'loading' }))
+      const root = b.view.container.querySelector('[data-phase]')
+      expect(root?.getAttribute('data-phase')).toBe('settling')
+
+      act(() => { vi.advanceTimersByTime(10_001) })
+      b.rerender()
+      expect(root?.getAttribute('data-phase')).toBe('hero')
+      expect(b.view.getByRole('textbox')).toBeTruthy()
+
+      // The open finally lands: phase flips to active and the composer stays.
+      b.session.set(sessionSnapshotOf({ blank: false, openState: 'open' }))
+      b.rerender()
+      expect(b.view.container.querySelector('[data-phase]')?.getAttribute('data-phase')).toBe('active')
+      expect(b.view.getByRole('textbox')).toBeTruthy()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a failed history open falls to the hero posture instead of an empty active column', () => {
+    const b = mount(sessionSnapshotOf({ blank: true, awaitingFirstTurn: true, openState: 'error' }))
+    const root = b.view.container.querySelector('[data-phase]')
+    expect(root?.getAttribute('data-phase')).toBe('hero')
+    expect(b.view.getByRole('textbox')).toBeTruthy()
+    expect(b.view.queryByRole('tablist')).toBeNull()
+  })
+
+  it('a new open attempt restarts the bounded settling window after an error', () => {
+    vi.useFakeTimers()
+    try {
+      const b = mount(sessionSnapshotOf({ blank: true, awaitingFirstTurn: true, openState: 'error' }))
+      // Failure is already surfaced in the hero; a resync back to loading
+      // hides the composer again for a fresh bounded window.
+      act(() => { b.session.set(sessionSnapshotOf({ blank: true, awaitingFirstTurn: true, openState: 'loading' })) })
+      b.rerender()
+      expect(b.view.container.querySelector('[data-phase]')?.getAttribute('data-phase')).toBe('settling')
+      act(() => { vi.advanceTimersByTime(10_001) })
+      b.rerender()
+      expect(b.view.container.querySelector('[data-phase]')?.getAttribute('data-phase')).toBe('hero')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('same textarea DOM node survives the hero → active flip into the sticky scrollport', () => {
     const b = mount(sessionSnapshotOf({ blank: true }))
     const before = b.view.getByRole('textbox')
