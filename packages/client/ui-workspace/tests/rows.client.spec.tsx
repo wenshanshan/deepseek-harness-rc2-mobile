@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
@@ -18,6 +18,27 @@ import type { GroupNode, SearchResultNode, SessionNode } from '../src/client/tre
 import { en, zh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
+
+/**
+ * jsdom implements no matchMedia; default the guard's device probe to the
+ * hover-capable answer the desktop-oriented suite expects, unless a case
+ * stubs its own answer (a reduced-motion stub, for example, must also
+ * answer the hover query).
+ */
+let mediaQueries: { hover: boolean; reduced: boolean } = { hover: true, reduced: false }
+beforeEach(() => {
+  mediaQueries = { hover: true, reduced: false }
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+    matches: query === '(hover: hover)'
+      ? mediaQueries.hover
+      : query === '(prefers-reduced-motion: reduce)'
+        ? mediaQueries.reduced
+        : false,
+  })))
+})
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 const t = makeTranslate(zh, commonZh) as never
 const tEn = makeTranslate(en, commonEn) as never
@@ -252,8 +273,6 @@ describe('workspace browser rows', () => {
 
   it('marquees a clipped session title at a constant speed while the row is hovered', () => {
     vi.useFakeTimers()
-    // jsdom implements no matchMedia; the stub answers the reduced-motion probe.
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
     try {
       const node: SessionNode = {
         id: sid('clipped'), title: 'A Session Title Long Enough To Be Clipped (1)', blank: false,
@@ -315,12 +334,11 @@ describe('workspace browser rows', () => {
       expect(title.scrollLeft).toBe(9)
     } finally {
       vi.useRealTimers()
-      vi.unstubAllGlobals()
     }
   })
 
   it('jumps a clipped title to its far edge under reduced motion', () => {
-    vi.stubGlobal('matchMedia', vi.fn((query: string) => ({ matches: query === '(prefers-reduced-motion: reduce)' })))
+    mediaQueries.reduced = true
     try {
       const node: SessionNode = {
         id: sid('reduced-motion'), title: 'A Session Title Long Enough To Be Clipped (1)', blank: false,
@@ -343,13 +361,12 @@ describe('workspace browser rows', () => {
       expect(title.scrollLeft).toBe(0)
       expect(title.hasAttribute('data-scrolled')).toBe(false)
     } finally {
-      vi.unstubAllGlobals()
+      mediaQueries.reduced = false
     }
   })
 
   it('returns a marqueed title to its start in one step and cancels the crawl', () => {
     vi.useFakeTimers()
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
     try {
       const node: SessionNode = {
         id: sid('instant-return'), title: 'A Session Title Long Enough To Be Clipped (1)', blank: false,
@@ -378,7 +395,6 @@ describe('workspace browser rows', () => {
       expect(scrollTo.mock.calls.length).toBe(settled)
     } finally {
       vi.useRealTimers()
-      vi.unstubAllGlobals()
     }
   })
 
@@ -998,6 +1014,60 @@ describe('workspace browser rows', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('lets a still press open the row instead of starting a drag (trackpad-tap guard)', () => {
+    const node: SessionNode = {
+      id: sid('s1'), title: 'Open me', blank: false, running: false,
+      runningSubagentCount: 0, completed: false, updatedAt: 0, pinned: false, archived: false,
+    }
+    const drag = dragProps()
+    const onOpen = vi.fn()
+    render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={onOpen} drag={drag} t={t} />)
+    const row = screen.getByRole('treeitem')
+    // A press that never moves keeps the click: the dragstart it may still
+    // produce is cancelled by the guard, so the row opens on the first tap.
+    fireEvent.pointerDown(row, { button: 0, pointerId: 1, clientX: 10, clientY: 10 })
+    fireEvent.dragStart(row, { dataTransfer })
+    expect(drag.start).not.toHaveBeenCalled()
+    fireEvent.click(row)
+    expect(onOpen).toHaveBeenCalledWith(node.id)
+  })
+
+  it('disables dragging on hover-less (touch) devices so a tap always opens the row', () => {
+    mediaQueries.hover = false
+    const node: SessionNode = {
+      id: sid('s1'), title: 'Touch me', blank: false, running: false,
+      runningSubagentCount: 0, completed: false, updatedAt: 0, pinned: false, archived: false,
+    }
+    const drag = dragProps()
+    const onOpen = vi.fn()
+    render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={onOpen} drag={drag} t={t} />)
+    const row = screen.getByRole('treeitem')
+    expect(row.getAttribute('draggable')).toBe('false')
+    // A dragstart the browser cannot produce here would still never reach the
+    // wiring: the row has no drag handlers, so a reorder cannot start.
+    fireEvent.dragStart(row, { dataTransfer })
+    expect(drag.start).not.toHaveBeenCalled()
+    // The first tap is a plain click that opens the Session.
+    fireEvent.click(row)
+    expect(onOpen).toHaveBeenCalledWith(node.id)
+  })
+
+  it('keeps a press that moves far enough a real drag', () => {
+    const node: SessionNode = {
+      id: sid('s1'), title: 'Drag me', blank: false, running: false,
+      runningSubagentCount: 0, completed: false, updatedAt: 0, pinned: false, archived: false,
+    }
+    const drag = dragProps()
+    const onOpen = vi.fn()
+    render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={onOpen} drag={drag} t={t} />)
+    const row = screen.getByRole('treeitem')
+    stubRect(row)
+    fireEvent.pointerDown(row, { button: 0, pointerId: 1, clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(row, { pointerId: 1, clientX: 30, clientY: 10 })
+    fireEvent.dragStart(row, { dataTransfer })
+    expect(drag.start).toHaveBeenCalledOnce()
   })
 
   it('draggable row wires start/end and gates hover/drop on an active same-group drag', () => {

@@ -18,7 +18,17 @@ import { apply, inject } from '@deepseek-ai/dsh-client-ui-workspace/client'
 usePinnedBrowserLanguages('zh-CN')
 
 afterEach(cleanup)
-beforeEach(() => { localStorage.clear() })
+beforeEach(() => {
+  localStorage.clear()
+  // jsdom implements no matchMedia; the default hover-capable answer keeps
+  // row dragging wired exactly as on desktop.
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+    matches: query === '(hover: hover)',
+  })))
+})
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 /** Test-owned sidebar shell role: declares and renders the browsing region. */
 type FrameProps = PropsRenderSlots<'sidebar.workspaces'>

@@ -223,6 +223,58 @@ describe('SidebarRoot shell', () => {
     expect(screen.getByRole('button', { name: 'Open sidebar' })).toBeTruthy()
   })
 
+  it('toggles the column on a blank-area click in either state', () => {
+    const b = mountShell()
+    // The workspace region renders no interactive element here, so a click on
+    // it is a blank-area click: expanded collapses, collapsed re-expands.
+    fireEvent.click(screen.getByTestId('region'))
+    expect(b.toggleSidebar).toHaveBeenCalledTimes(1)
+    b.rerender({ collapsed: true })
+    fireEvent.click(screen.getByTestId('region'))
+    expect(b.toggleSidebar).toHaveBeenCalledTimes(2)
+  })
+
+  it('never double-triggers on the collapse control itself', () => {
+    const b = mountShell()
+    // The toggle button owns the gesture; the blank-area handler must skip it.
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(b.toggleSidebar).toHaveBeenCalledOnce()
+  })
+
+  it('skips interactive region content (tree rows) when deciding blank space', () => {
+    const startSession = vi.fn()
+    const toggleSidebar = vi.fn()
+    render(<SidebarRoot
+      collapsed={false} width={300}
+      useSessions={neverHook} useSessionStatus={useSessionStatus} useSessionRetainInfo={neverHook}
+      usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])} useShortcuts={selector => selector([])}
+      useResource={useResource} useWorkspaces={neverHook}
+      {...allowAllAccess}
+      startSession={startSession} toggleSidebar={toggleSidebar} t={t}
+      renderSlot={((key: string) => key === 'sidebar.workspaces'
+        ? <div role="tree"><div role="treeitem" data-testid="session-row">Session</div></div>
+        : null) as SidebarRootComponentProps['renderSlot']}
+    />)
+    // A click on a tree row belongs to the row (opening the Session), never
+    // to the column toggle.
+    fireEvent.click(screen.getByTestId('session-row'))
+    expect(toggleSidebar).not.toHaveBeenCalled()
+    // The list container itself is blank space, so it still toggles.
+    fireEvent.click(screen.getByRole('tree'))
+    expect(toggleSidebar).toHaveBeenCalledOnce()
+  })
+
+  it('ignores blank clicks while the column is fully hidden (Windows/macOS collapsed)', () => {
+    const b = mountShell({ collapsed: true, width: 0 })
+    // Caption controls are fixed-position descendants of the zero-width
+    // column; their surroundings must not reopen the sidebar.
+    fireEvent.click(screen.getByTestId('region'))
+    expect(b.toggleSidebar).not.toHaveBeenCalled()
+    // The visible open control keeps working.
+    fireEvent.click(screen.getByRole('button', { name: 'Open sidebar' }))
+    expect(b.toggleSidebar).toHaveBeenCalledOnce()
+  })
+
   it('shows only the badge bubble while the rail badge is hovered inside the toggle', () => {
     vi.useFakeTimers()
     render(<SidebarRoot

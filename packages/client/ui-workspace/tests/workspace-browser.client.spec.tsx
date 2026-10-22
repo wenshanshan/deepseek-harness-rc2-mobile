@@ -31,6 +31,14 @@ beforeEach(() => {
   createWorkspaceViewStore().create().actions.setOrderBy('manual', {})
   Element.prototype.scrollIntoView = scrollIntoView
   scrollIntoView.mockClear()
+  // jsdom implements no matchMedia; the default hover-capable answer keeps
+  // row dragging wired exactly as on desktop.
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+    matches: query === '(hover: hover)',
+  })))
+})
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 // The seat's key domain is workspace ∪ common; the stub mirrors the real

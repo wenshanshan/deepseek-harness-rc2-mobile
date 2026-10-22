@@ -32,7 +32,17 @@ usePinnedBrowserLanguages('zh-CN')
 const SID = 's1' as SessionId
 
 afterEach(cleanup)
-beforeEach(() => { localStorage.clear() })
+beforeEach(() => {
+  localStorage.clear()
+  // jsdom implements no matchMedia; the default hover-capable answer keeps
+  // row dragging wired exactly as on desktop.
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+    matches: query === '(hover: hover)',
+  })))
+})
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 /** Runtime with the locale face installed (the browser entry declares `locale:` — zh default backs the t seat). */
 async function createRuntime(): Promise<SlotTestRuntime> {

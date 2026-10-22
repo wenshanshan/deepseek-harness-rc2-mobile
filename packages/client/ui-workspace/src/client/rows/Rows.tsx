@@ -203,6 +203,80 @@ function rowHalf(e: { clientY: number; currentTarget: HTMLElement }): 'before' |
 }
 
 /**
+ * Touch devices have no hover affordance to distinguish a press from a drag,
+ * and their press-drift tricked the browser into treating the first tap as a
+ * drag, which swallowed the row's click: the first tap highlighted the
+ * Session but never opened it. The guard's cancel-at-threshold restored the
+ * click, yet the gesture remained ambiguous. Devices without hover therefore
+ * disable row dragging entirely — a long press never starts a drag, so the
+ * tap that opens a Session can never be misread as a reorder. Desktop and
+ * trackpad users keep dragging (the trackpad's own press threshold
+ * distinguishes their taps).
+ */
+function supportsRowDrag(): boolean {
+  return typeof window === 'undefined'
+    || window.matchMedia('(hover: hover)').matches
+}
+
+/** Press movement below this many px is a click, not a drag. */
+const DRAG_PRESS_THRESHOLD_PX = 5
+
+/**
+ * Distinguish a still press from a real drag on a natively draggable row.
+ * Trackpad taps and touchscreen presses drift a few pixels while the browser
+ * already decided to drag, which swallows the row's click — the first tap on
+ * a Session would highlight but never open it. Presses that never move past
+ * {@link DRAG_PRESS_THRESHOLD_PX} cancel the drag from `dragstart`, which
+ * restores the click; presses that do move proceed as real drags. The drag
+ * wiring engages only on devices where dragging is supported.
+ * @returns the pointer/drag wiring for a row.
+ */
+function useFakeDragGuard(): {
+  /** Whether this device can start a row drag; false on hover-less touch screens. */
+  readonly supported: boolean
+  onPointerDown: (e: React.PointerEvent) => void
+  onPointerMove: (e: React.PointerEvent) => void
+  onPointerUp: () => void
+  onDragStart: (e: React.DragEvent) => boolean
+} {
+  // A still press on a device without drag support can never intend one;
+  // wiring nothing keeps `draggable` off on hover-less devices.
+  const [supported] = useState(supportsRowDrag)
+  const origin = useRef<{ x: number; y: number; id: number } | null>(null)
+  const moved = useRef(0)
+  const begin = (e: React.PointerEvent): void => {
+    if (!supported || e.button !== 0) return
+    origin.current = { x: e.clientX, y: e.clientY, id: e.pointerId }
+    moved.current = 0
+  }
+  return {
+    supported,
+    onPointerDown: begin,
+    onPointerMove: (e: React.PointerEvent): void => {
+      if (origin.current === null || origin.current.id !== e.pointerId) return
+      const distance = Math.hypot(e.clientX - origin.current.x, e.clientY - origin.current.y)
+      if (distance > moved.current) moved.current = distance
+    },
+    onPointerUp: (): void => {
+      origin.current = null
+    },
+    // A dragstart with a still press is the browser's drag-threshold hiccup,
+    // not an intent to reorder: cancel it so the click reaches the row. The
+    // row never emits dragstart on hover-less devices, so this is the
+    // desktop/trackpad guard.
+    onDragStart: (e: React.DragEvent): boolean => {
+      if (origin.current === null) return true
+      origin.current = null
+      if (moved.current < DRAG_PRESS_THRESHOLD_PX) {
+        e.preventDefault()
+        return false
+      }
+      return true
+    },
+  }
+}
+
+/**
  * Project (workspace) header row: folder + title;
  * hover reveals the chevron and create button, and dwelling on a real
  * Workspace shows its hover card (the ungrouped bucket has none).
@@ -235,6 +309,7 @@ export function ProjectRowItem({ group, containsCurrentDescendant = false, onTog
   const label = row.workspaceId === undefined ? t('group.ungrouped') : row.label
   const active = containsCurrentDescendant || (group.expanded && group.containsCurrent)
   const [menuOpen, setMenuOpen] = useState(false)
+  const dragGuard = useFakeDragGuard()
   const workspaceMenuItems = [
     { id: 'rename', label: t('rename'), icon: <IconEditOutlineRegular /> },
     { id: 'delete', label: t('delete.workspace'), icon: <IconTrashOutlineRegular />, danger: true },
@@ -246,10 +321,15 @@ export function ProjectRowItem({ group, containsCurrentDescendant = false, onTog
       role="treeitem"
       aria-expanded={row.expanded}
       onClick={onToggle}
-      draggable={drag !== undefined}
-      onDragStart={drag === undefined
+      onPointerDown={dragGuard.onPointerDown}
+      onPointerMove={dragGuard.onPointerMove}
+      onPointerUp={dragGuard.onPointerUp}
+      onPointerCancel={dragGuard.onPointerUp}
+      draggable={drag !== undefined && dragGuard.supported}
+      onDragStart={drag === undefined || !dragGuard.supported
         ? undefined
         : (e) => {
+          if (!dragGuard.onDragStart(e)) return
           e.dataTransfer.effectAllowed = 'move'
           e.dataTransfer.setData('text/plain', row.key)
           drag.start()
@@ -565,10 +645,11 @@ export function SessionNodeItem({
   const statuses = sessionStatuses(node, t)
   const primaryStatus = statuses[0]
   const showStatus = primaryStatus.state !== 'idle'
+  const dragGuard = useFakeDragGuard()
   // Archived rows hold their in-place grayed slot, so manual reorder cannot
   // move them. Pinned rows drag within the pinned block: the browser gates
   // their drop targets to fellow pinned rows.
-  const draggable = drag !== undefined && !row.blank && !row.archived
+  const draggable = drag !== undefined && !row.blank && !row.archived && dragGuard.supported
   const [menuOpen, setMenuOpen] = useState(false)
   // The menu's open state, bound into the row entries' `useMenuOpenState` hook.
   const menuOpenState = useMemo((): MenuOpenState => [menuOpen, setMenuOpen], [menuOpen])
@@ -594,12 +675,17 @@ export function SessionNodeItem({
       aria-selected={selected}
       aria-description={row.archived ? t('toast.archivedNotOpenable') : undefined}
       onClick={() => { onOpen(node.id) }}
+      onPointerDown={dragGuard.onPointerDown}
+      onPointerMove={dragGuard.onPointerMove}
+      onPointerUp={dragGuard.onPointerUp}
+      onPointerCancel={dragGuard.onPointerUp}
       onPointerEnter={marquee.enter}
       onPointerLeave={marquee.leave}
       draggable={draggable}
       onDragStart={!draggable
         ? undefined
         : (e) => {
+          if (!dragGuard.onDragStart(e)) return
           e.dataTransfer.effectAllowed = 'move'
           e.dataTransfer.setData('text/plain', node.id)
           drag.start()

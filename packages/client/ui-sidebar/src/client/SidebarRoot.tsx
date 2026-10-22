@@ -31,6 +31,20 @@ import css from './SidebarRoot.module.css'
 const COLLAPSE_SETTLE_MS = 150
 
 /**
+ * Elements a click lands on that are never "blank space": their own handler
+ * owns the gesture, so a blank-area click must not also flip the column.
+ * Matches controls the shell renders (toggle, New Session, panel rows),
+ * the workspace browser's interactive surfaces (tree rows carry
+ * `role=treeitem`; the search capsule marks itself `data-interactive`), and
+ * the macOS window-drag rows (a click there drags the window).
+ */
+const INTERACTIVE_CLICK_SELECTOR = [
+  'button', 'a', 'input', 'textarea', 'select',
+  '[role="treeitem"]', '[role="button"]', '[role="menuitem"]', '[role="option"]',
+  '[data-interactive]', '[data-window-drag]',
+].join(',')
+
+/**
  * How long the column's scrollbars stay drawn after the pointer leaves it.
  * The bar is a pointer affordance here, and hiding it on the leave event
  * itself makes it blink out while the pointer is only crossing the column's
@@ -209,6 +223,17 @@ export function SidebarRoot({
         setPointerInside(true)
       }}
       onPointerLeave={() => { armLinger() }}
+      onClick={(event) => {
+        // Blank-space toggle: a click that no interactive element owns flips
+        // the column. Skipped while the column is fully hidden (Windows/macOS
+        // collapsed: width 0) — the caption controls there are fixed-position
+        // descendants of this box, and clicking their surroundings must not
+        // reopen the sidebar.
+        const target = event.target
+        if (collapsed && width === 0) return
+        if (!(target instanceof Element) || target.closest(INTERACTIVE_CLICK_SELECTOR) !== null) return
+        toggleSidebar()
+      }}
     >
       {/* macOS hiddenInset titlebar: the strip shares the row with the
           traffic lights and keeps the toggle at the sidebar's top-right. */}

@@ -1270,6 +1270,10 @@ export function WorkspaceBrowser({
             <div
               ref={searchRoot}
               className={clsx(css.search, searchExpanded && css.searchExpanded)}
+              // The whole capsule is a click surface (expanding search is its
+              // one gesture), so the sidebar shell's blank-area toggle must
+              // skip it.
+              data-interactive
               onClick={() => {
                 closeAddWorkspace()
                 setSearchExpanded(true)
