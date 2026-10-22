@@ -1845,6 +1845,39 @@ describe('command launcher chrome and control seats', () => {
     expect(toggleCommandMenu).toHaveBeenCalledTimes(1)
   })
 
+  // Touch-primary devices raise the on-screen keyboard on any programmatic
+  // draft focus, and a blurred draft claims nothing the user did not tap.
+  describe('on touch-primary input', () => {
+    const stubPointer = (matches: boolean): void => {
+      vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+        matches: query === '(hover: hover)' || query === '(pointer: fine)' ? matches : false,
+      })))
+      onTestFinished(() => { vi.unstubAllGlobals() })
+    }
+
+    it('opening the command menu from the button leaves a blurred draft unfocused', () => {
+      stubPointer(false)
+      const toggleCommandMenu = vi.fn()
+      const { view, textarea } = bench({ draft: 'draft text', toggleCommandMenu })
+      textarea.blur()
+      expect(document.activeElement).not.toBe(textarea)
+      fireEvent.mouseDown(view.getByLabelText('添加文件或调用指令'))
+      fireEvent.click(view.getByLabelText('添加文件或调用指令'))
+      expect(document.activeElement).not.toBe(textarea)
+      expect(toggleCommandMenu).toHaveBeenCalledTimes(1)
+      // The menu still reads the live caret span, which needs no focus.
+      expect(toggleCommandMenu).toHaveBeenCalledExactlyOnceWith({ start: 10, end: 10 })
+    })
+
+    it('a tool button press keeps an already focused draft focused', () => {
+      stubPointer(false)
+      const { view, textarea } = bench({ draft: 'draft text' })
+      act(() => { textarea.focus() })
+      fireEvent.mouseDown(view.getByLabelText('发送消息'))
+      expect(document.activeElement).toBe(textarea)
+    })
+  })
+
   it('a registered entry fills its seat and receives the locked owner prop', () => {
     const { view, slotCalls } = bench({
       disabled: true,

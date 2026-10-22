@@ -32,7 +32,7 @@ import type { ComposerBarProps } from '../contract/slots.ts'
 import { DraftEditor } from '../input/editor/DraftEditor.tsx'
 import {
   focusDraftEditor, installDraftFilePicker, installDraftKeymap, installDraftWheel,
-  keepDraftFocus, revealDraftSelection,
+  isTouchPrimaryInput, keepDraftFocus, mayRestoreDraftFocus, revealDraftSelection,
 } from '../input/editor/view-binding.ts'
 import { resolveSubmitMode } from '../input/submission-policy.ts'
 import { attachmentErrorText, imageSizeText } from '../image-labels.ts'
@@ -177,9 +177,12 @@ export const InputBar = memo(function InputBar({
   // reveal that comes with it. Lexical's focus() suppresses the browser's
   // scroll walk (preventScroll inside), so the reveal in our own scrollport
   // is ours to perform — switching to a longer draft otherwise leaves the
-  // caret (restored at the draft's end) off screen.
+  // caret (restored at the draft's end) off screen. Touch-primary devices skip
+  // this: opening a Session or clearing a Composer block must not raise the
+  // on-screen keyboard on its own, so the draft stays unfocused until the user
+  // taps it.
   useEffect(() => {
-    if (locked || editor === null) return
+    if (locked || editor === null || isTouchPrimaryInput()) return
     focusDraftEditor(editor, revealSelection)
   }, [locked, sessionId, editor])
 
@@ -297,8 +300,10 @@ export const InputBar = memo(function InputBar({
     // The menu is a combobox over the editor, so the keyboard has to be there
     // before the launcher opens it: activating the button from the keyboard
     // leaves focus on the button, and restoring it afterwards would re-track an
-    // empty draft and close the menu again.
-    if (editor !== null) focusDraftEditor(editor, revealSelection)
+    // empty draft and close the menu again. Touch-primary input keeps the
+    // blurred state — claiming focus there raises the on-screen keyboard for a
+    // menu the user opened by tapping a button.
+    if (editor !== null && mayRestoreDraftFocus(editor)) focusDraftEditor(editor, revealSelection)
     toggleCommandMenu?.(keyboard.caretSpan())
   }
 
@@ -307,7 +312,7 @@ export const InputBar = memo(function InputBar({
     if (keyboard === undefined || inputActions === undefined) return
     const span = inputActions.captureInsertion()
     inputActions.insertText(phrase, span)
-    if (editor !== null) focusDraftEditor(editor, revealSelection)
+    if (editor !== null && mayRestoreDraftFocus(editor)) focusDraftEditor(editor, revealSelection)
   }
 
   // The no-session Workspace trigger: the resident editable div acts as the

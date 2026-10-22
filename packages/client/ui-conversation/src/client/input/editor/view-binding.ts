@@ -145,11 +145,44 @@ export function installDraftKeymap(
 }
 
 /**
+ * Whether the primary input is touch — no hover capability or a coarse pointer.
+ * Programmatic focus on the draft editor raises the on-screen keyboard on such
+ * devices, so callers avoid claiming focus the user did not ask for and keep
+ * the desktop behavior (hover-capable fine pointer) unchanged.
+ * @returns true on touch-primary devices; false on desktop, SSR, and when
+ *   matchMedia is unavailable (jsdom/older engines keep the focus behavior).
+ */
+export function isTouchPrimaryInput(): boolean {
+  if (typeof window === 'undefined') return false
+  const mq = window.matchMedia?.bind(window)
+  if (mq === undefined) return false
+  return !mq('(hover: hover)').matches || !mq('(pointer: fine)').matches
+}
+
+/**
+ * Whether a press may hand focus to the draft without raising the on-screen
+ * keyboard. Hover-primary input always may; touch-primary input may only while
+ * the draft already owns DOM focus, so a blurred draft stays blurred until the
+ * user taps the text surface itself.
+ * @param editor - the borrowed editor.
+ * @returns true when a programmatic draft focus is safe for this press.
+ */
+export function mayRestoreDraftFocus(editor: LexicalEditor): boolean {
+  const root = editor.getRootElement()
+  if (root === null) return false
+  return !isTouchPrimaryInput() || document.activeElement === root
+}
+
+/**
  * Keep a toolbar press from moving focus away from the draft.
  * @param event - the toolbar button's mouse event.
  * @param editor - the borrowed editor, absent in the inert view.
  */
 export function keepDraftFocus(event: MouseEvent<HTMLButtonElement>, editor: LexicalEditor | null): void {
   event.preventDefault()
-  editor?.getRootElement()?.focus({ preventScroll: true })
+  // Preventing the press default already holds the caret where it was, so an
+  // editor that still owns focus needs no restore; one that does not would
+  // only gain the on-screen keyboard here.
+  if (editor === null || !mayRestoreDraftFocus(editor)) return
+  editor.getRootElement()?.focus({ preventScroll: true })
 }
