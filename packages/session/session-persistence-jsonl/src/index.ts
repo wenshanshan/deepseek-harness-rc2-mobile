@@ -60,11 +60,21 @@ import {
 export type { JsonlCompression } from './format.ts'
 
 /**
- * Internal handoff-reuse policy, not deployment configuration: a cold
- * observation and the resume that immediately follows it reuse one parsed
- * log, so the memo only needs the sessions in flight between those steps.
+ * Default cold-read handoff cache bound: a cold observation and the resume
+ * that immediately follows it reuse one parsed log, so the default memo keeps
+ * only the sessions in flight between those steps. Deployments that reopen
+ * many sessions can raise {@link Config.coldLogCacheSize} to avoid re-parsing.
  */
-const COLD_LOG_MEMO_MAX_ENTRIES = 2
+const DEFAULT_COLD_LOG_CACHE_SIZE = 2
+
+/** Resolve and validate the cold-read handoff cache bound. */
+function resolveColdLogCacheSize(value: number | undefined): number {
+  const size = value ?? DEFAULT_COLD_LOG_CACHE_SIZE
+  if (!Number.isSafeInteger(size) || size < 1) {
+    throw new Error('session-persistence-jsonl: coldLogCacheSize must be a positive safe integer')
+  }
+  return size
+}
 
 const DEFAULT_COMPRESSION: JsonlCompression = 'zstd'
 /**
@@ -108,6 +118,13 @@ export interface Config {
    * fingerprints). Defaults to 3.
    */
   listConcurrency?: number
+  /**
+   * Maximum number of parsed, validated stored logs retained in the cold-read
+   * handoff memo, keyed by session id and guarded by the stat-derived revision.
+   * A larger bound lets sessions recently handed from a cold observation to a
+   * resume stay decoded across churn instead of being re-parsed. Defaults to 2.
+   */
+  coldLogCacheSize?: number
 }
 
 /** Logical header paired with the catalog's selected physical-generation classification. */
@@ -312,6 +329,8 @@ class JsonlSessionPersistence extends SessionPersistence {
   private readonly coldLogMemo = new Map<SessionId, StoredLog>()
   /** One joinable decode/migration operation per selected historical Session file revision. */
   private readonly migrationPreparations = new Map<SessionId, MigrationPreparation>()
+  /** Maximum parsed logs retained by {@link coldLogMemo}; see {@link Config.coldLogCacheSize}. */
+  private readonly coldLogCacheSize: number
 
   constructor(ctx: Context, public config: Config, private readonly tracker: JsonlBackendTracker) {
     super(ctx)
@@ -326,6 +345,7 @@ class JsonlSessionPersistence extends SessionPersistence {
     this.root = resolve(config.root)
     this.compression = config.compression ?? DEFAULT_COMPRESSION
     this.listLimit = pLimit(config.listConcurrency ?? DEFAULT_LIST_CONCURRENCY)
+    this.coldLogCacheSize = resolveColdLogCacheSize(config.coldLogCacheSize)
     this.generationFormat = {
       currentVersion: sessionFormatCatalog.currentVersion,
       encodeHeader: (header, inheritedEventCount) =>
@@ -874,7 +894,7 @@ class JsonlSessionPersistence extends SessionPersistence {
     this.coldLogMemo.delete(id)
     this.coldLogMemo.set(id, stored)
     for (const oldest of this.coldLogMemo.keys()) {
-      if (this.coldLogMemo.size <= COLD_LOG_MEMO_MAX_ENTRIES) break
+      if (this.coldLogMemo.size <= this.coldLogCacheSize) break
       this.coldLogMemo.delete(oldest)
     }
   }
@@ -1804,11 +1824,12 @@ class JsonlSessionPersistence extends SessionPersistence {
 /** JSONL persistence plugin label. */
 export const name = 'session-persistence-jsonl'
 
-/** Loader schema for the backend's root, physical encoding, and listing concurrency. */
+/** Loader schema for the backend's root, physical encoding, listing concurrency, and cold-read cache bound. */
 export const Config: z<Config> = z.object({
   root: z.string().required(),
   compression: JsonlCompressionSchema,
   listConcurrency: z.natural().min(1).default(DEFAULT_LIST_CONCURRENCY),
+  coldLogCacheSize: z.natural().min(1).default(DEFAULT_COLD_LOG_CACHE_SIZE),
 })
 
 /**

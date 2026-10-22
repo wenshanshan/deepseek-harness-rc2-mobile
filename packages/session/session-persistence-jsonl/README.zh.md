@@ -47,6 +47,7 @@ kind: "package-reference"
 | `root` | 必填 | 所有会话文件的根目录 |
 | `compression` | `'zstd'` | 物理编码：`'zstd'` 带校验和帧，或 `'none'` 换行分隔 UTF-8 文本 |
 | `listConcurrency` | `3` | 同时进行的目录、header 与 stat 读取上限，由该后端所有并发的列举共用 |
+| `coldLogCacheSize` | `2` | 冷读交接缓存保留的已解析、已验证存储日志上限（按会话 id 键控）；更大值可让最近读取的会话无需重新解析即可重开 |
 
 实时事件的写入批处理不是配置：批处理窗口是该 seam 在每个写句柄内部的调度策略。
 

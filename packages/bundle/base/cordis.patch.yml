@@ -139,6 +139,11 @@
       name: '@deepseek-ai/dsh-session-persistence-jsonl'
       config:
         root: !!js dshHomePath('sessions')
+        # Keep more parsed logs in the cold-read handoff memo so recently
+        # opened sessions reopen without re-parsing. Each entry holds decoded
+        # events, so the bound is a memory/CPU tradeoff; 16 covers typical
+        # open/multi-session churn while bounding retained bytes.
+        coldLogCacheSize: 16
 
     # Durable image bytes live outside the append-only session log. Messages
     # keep content-addressed references that this shared backend resolves for
@@ -159,6 +164,12 @@
       config:
         path: ':memory:'
         openAt: never
+        # Cache more prepared cold Session observations (keyed by durable
+        # revision) so reopening a session reuses the decoded log instead of
+        # re-reading it. Each entry retains the full decoded event array, so
+        # the bound trades memory against reopen cost; 16 balances churn while
+        # bounding retained bytes for large conversations.
+        preparedSessionCacheSize: 16
 
     # Shared projection registry: subagent catalog identity (mode/label) folds
     # through its registered units, so the `list_agents` surface below fails
