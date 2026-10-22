@@ -341,8 +341,9 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     // Settings write ops index into the user override layer (the entry's own
     // config), so the model index must come from that same layer. A model only
     // the composed base supplies has no addressable index there and is refused
-    // rather than mis-written against the resolved array.
-    const providers = asRecord(section.user)
+    // rather than mis-written against the resolved array. The layer is a whole
+    // Config section, so the provider map sits under its own `providers` key.
+    const providers = asRecord(asRecord(section.user)?.['providers'])
     const provider = providers?.[route.provider]
     const profile = asRecord(provider)
     const index = asArray(profile?.['models'])?.findIndex(

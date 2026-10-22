@@ -22,6 +22,7 @@ import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import { createConversationStore } from '../src/client/stores.ts'
 import type { SessionInputShell } from '../src/client/input/facade.ts'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
+import type { StubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 
 usePinnedBrowserLanguages('zh-CN')
 
@@ -39,7 +40,7 @@ function sessionFakeFor() {
   } satisfies SessionBehaviorOverrides
 }
 
-async function bench() {
+async function bench(options: { piAiForm?: StubConfigForm<Record<string, unknown>> } = {}) {
   const runtime = await SlotTestRuntime.create()
   const rootUpload = vi.fn(() => Promise.resolve({
     ok: true as const,
@@ -60,7 +61,9 @@ async function bench() {
       enabled: developerTools,
       setEnabled: async (enabled: boolean) => { developerTools.set(enabled) },
     },
-    get: () => stubConfigForm().scope,
+    get: (ns: string) => ns === 'llm-pi-ai' && options.piAiForm !== undefined
+      ? options.piAiForm.scope
+      : stubConfigForm().scope,
   } as never)
   const connectWorkspace = vi.fn(async () => ROOT)
   const references = new Map<SessionId, SessionReference>()
@@ -377,6 +380,54 @@ describe('Conversation inject API', () => {
     })
     b.composerApi(ROOT).stop!()
     await vi.waitFor(() => { expect(b.sessionFake.cancel).toHaveBeenCalledOnce() })
+    await b.runtime.dispose()
+  })
+
+  it('sets the current pi-ai model context window from the model entry in the user layer', async () => {
+    const piAiForm = stubConfigForm<Record<string, unknown>>()
+    // The user override layer is a whole Config section, so the provider map
+    // sits under its own `providers` key exactly as the Host projects it.
+    piAiForm.publish({
+      status: 'ready',
+      value: { providers: { testProvider: { models: [{ id: 'testModel', contextWindow: 512_000 }] } } },
+      user: { providers: { testProvider: { models: [{ id: 'testModel', contextWindow: 512_000 }] } } },
+      revision: 1,
+      writable: true,
+    })
+    const b = await bench({ piAiForm })
+    await b.runtime.sessions.setProjection(ROOT, 'modelSelection', {
+      lastUsed: { provider: 'testProvider', model: 'testModel' },
+      next: { provider: 'testProvider', model: 'testModel' },
+    })
+    await b.composerApi(ROOT).setContextWindow!(256_000)
+    expect(piAiForm.mutate).toHaveBeenCalledOnce()
+    expect(piAiForm.mutate).toHaveBeenCalledWith([{
+      op: 'set',
+      path: ['providers', 'testProvider', 'models', '0', 'contextWindow'],
+      value: 256_000,
+    }])
+    await b.runtime.dispose()
+  })
+
+  it('reports an unavailable context window when the model has no user-layer entry', async () => {
+    const piAiForm = stubConfigForm<Record<string, unknown>>()
+    piAiForm.publish({
+      status: 'ready',
+      value: { providers: {} },
+      user: { providers: {} },
+      revision: 1,
+      writable: true,
+    })
+    const b = await bench({ piAiForm })
+    await b.runtime.sessions.setProjection(ROOT, 'modelSelection', {
+      lastUsed: { provider: 'testProvider', model: 'testModel' },
+      next: { provider: 'testProvider', model: 'testModel' },
+    })
+    await b.composerApi(ROOT).setContextWindow!(256_000)
+    expect(piAiForm.mutate).not.toHaveBeenCalled()
+    await vi.waitFor(() => {
+      expect(b.composerApi(ROOT).hooks.notices.getSnapshot()?.level).toBe('error')
+    })
     await b.runtime.dispose()
   })
 

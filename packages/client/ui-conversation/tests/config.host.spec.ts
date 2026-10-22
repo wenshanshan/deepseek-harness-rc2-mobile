@@ -25,6 +25,33 @@ describe('ui-conversation host', () => {
     await expect(configuration.update({ busyEnter: 'invalid' })).rejects.toThrow()
     await fiber.dispose()
   })
+
+  it('persists, reorders, and clears the durable quick-phrase list', async () => {
+    const ctx = new Context()
+    const configuration = await liveConfig(ctx, { Config, apply })
+    const { fiber } = configuration
+    expect(plainConfig(fiber.config)).toEqual({
+      busyEnter: DEFAULT_BUSY_ENTER_BEHAVIOR,
+      quickPhrases: [...DEFAULT_QUICK_PHRASES],
+    })
+    await configuration.update({ quickPhrases: ['keep going', 'explain that again'] })
+    expect(plainConfig(fiber.config)).toEqual({
+      busyEnter: DEFAULT_BUSY_ENTER_BEHAVIOR,
+      quickPhrases: ['keep going', 'explain that again'],
+    })
+    // The composer writes the whole ordered list, so a removal is a shorter list.
+    await configuration.update({ quickPhrases: ['explain that again'] })
+    expect(plainConfig(fiber.config)).toEqual({
+      busyEnter: DEFAULT_BUSY_ENTER_BEHAVIOR,
+      quickPhrases: ['explain that again'],
+    })
+    await configuration.update({ quickPhrases: [] })
+    expect(plainConfig(fiber.config)).toEqual({
+      busyEnter: DEFAULT_BUSY_ENTER_BEHAVIOR,
+      quickPhrases: [],
+    })
+    await fiber.dispose()
+  })
 })
 
 it('keeps its own instance off the generated Settings pages', () => omitsGeneratedPage(ctx => ctx.plugin(HostPlugin)))
