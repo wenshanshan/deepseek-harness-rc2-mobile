@@ -57,6 +57,7 @@ export function SessionLogDownloadHeaderAction(props: SessionLogDownloadHeaderPr
             aria-haspopup="menu"
             aria-expanded={open}
             aria-busy={busy}
+            data-mobile-header-hide
             onClick={() => { setOpen(value => !value) }}
           >
             <IconEllipsisOutlineRegular />

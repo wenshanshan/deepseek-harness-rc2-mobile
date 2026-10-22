@@ -131,7 +131,8 @@ export function OpenTargetButton(props: OpenTargetButtonProps): ReactNode {
         onSelect={(id) => { run(id === 'reveal' ? { kind: 'reveal' } : { kind: 'application', id: id.slice(4) }) }}
         anchor={(
           <div className={css.split} data-open-target={kind} data-size={props.prominent ? 'large' : 'compact'}
-            data-open-path={kind === 'file' && !props.prominent ? '' : undefined} data-state={disabled ? 'busy' : 'idle'}>
+            data-open-path={kind === 'file' && !props.prominent ? '' : undefined} data-state={disabled ? 'busy' : 'idle'}
+            data-mobile-header-hide={props.prominent ? undefined : ''}>
             <Tooltip portal label={primaryLabel} shortcutKeys={props.shortcut?.keys} side="bottom" delayMs={500}>
               <button type="button" className={css.main} disabled={disabled} aria-label={props.prominent ? undefined : primaryLabel}
                 aria-keyshortcuts={props.shortcut?.aria}

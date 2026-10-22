@@ -102,6 +102,7 @@ function PanelRow({ id, label, wide, usePanelInfo, selectPanel, renderSlot }: Pa
 export function SidebarRoot({
   collapsed,
   width,
+  narrow,
   startSession,
   toggleSidebar,
   selectPanel,
@@ -228,7 +229,11 @@ export function SidebarRoot({
         // the column. Skipped while the column is fully hidden (Windows/macOS
         // collapsed: width 0) — the caption controls there are fixed-position
         // descendants of this box, and clicking their surroundings must not
-        // reopen the sidebar.
+        // reopen the sidebar. Skipped entirely on a narrow drawer: its open
+        // state is owned by the header Logo and the frame's scrim, and a
+        // click that bubbles from a popover/hover-card root would otherwise
+        // flip the drawer back open right after a Session opens.
+        if (narrow) return
         const target = event.target
         if (collapsed && width === 0) return
         if (!(target instanceof Element) || target.closest(INTERACTIVE_CLICK_SELECTOR) !== null) return

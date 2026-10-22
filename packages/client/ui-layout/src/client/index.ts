@@ -131,6 +131,12 @@ export interface SidebarOwnerProps {
   collapsed: boolean
   /** Rendered column width in px (SIDEBAR_COLLAPSED when collapsed). */
   width: number
+  /** True below the mobile breakpoint, where the column is a floating drawer
+   *  that never reserves a grid track. The occupant uses it to suppress
+   *  interactions that only make sense for a persistent wide column (for
+   *  example blank-space click-to-toggle, which a drawer's scrim and Logo
+   *  affordance already own). */
+  narrow: boolean
 }
 
 /** Right column owner share: resolved normal geometry and opening eligibility. */

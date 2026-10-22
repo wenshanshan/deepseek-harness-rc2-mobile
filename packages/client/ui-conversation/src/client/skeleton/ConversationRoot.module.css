@@ -557,3 +557,18 @@ button.crumb:hover {
 .embeddedBody[data-content-phase='settling'] .composerSeat {
   visibility: hidden;
 }
+
+/* Mobile (narrow) header simplification: only the archive utility stays in
+   the trailing row. The right-drawer expand control (corner seat) and the
+   marked utilities (more-operations menu, open-in-app split) hide so the
+   header reads one action on phones. Marked buttons opt in via
+   data-mobile-header-hide at their registration sites. */
+@media (max-width: 1023px) {
+  .headerCorner {
+    display: none;
+  }
+
+  .headerUtilities [data-mobile-header-hide] {
+    display: none;
+  }
+}

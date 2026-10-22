@@ -12,6 +12,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type { SidebarPanelMetadata, SidebarRootInjected } from './contract/slots.ts'
 import { HeaderLeadingControls } from './HeaderLeadingControls.tsx'
+import { MobileDrawerLogo } from './MobileDrawerLogo.tsx'
 import { SidebarRoot } from './SidebarRoot.tsx'
 import { en, zh, type SidebarKey } from './locales.ts'
 
@@ -96,5 +97,15 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: injectProps,
   }, HeaderLeadingControls))
+  // Narrow frames hide the sidebar column with no rail, so the drawer's only
+  // reachable affordance is this Logo in the conversation header's leading
+  // seat. The component self-gates on the mobile breakpoint and renders null
+  // on wide viewports (where the shell.leading seat or the rail already owns
+  // the open control).
+  ctx.slots.inject('conversation.header.leading', () => ctx.slots.register({
+    name: 'conversation.header.leading',
+    locale: NS,
+    inject: injectProps,
+  }, MobileDrawerLogo))
   syncPanels()
 }

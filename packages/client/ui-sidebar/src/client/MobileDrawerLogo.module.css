@@ -1,0 +1,21 @@
+/* The narrow-frame drawer Logo (MobileDrawerLogo): a compact 28px round
+   target matching the header's other icon controls, in the conversation
+   header's leading seat (grid-column 1, ui-conversation ConversationRoot). */
+.logoButton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.logoButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}

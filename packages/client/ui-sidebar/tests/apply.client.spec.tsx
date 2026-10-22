@@ -9,6 +9,7 @@ import { apply, inject } from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { SidebarRootInjected } from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 import { HeaderLeadingControls } from '../src/client/HeaderLeadingControls.tsx'
+import { MobileDrawerLogo } from '../src/client/MobileDrawerLogo.tsx'
 import { apply as hostApply } from '../src/index.ts'
 
 const owners = new Set<Fiber>()
@@ -45,6 +46,7 @@ async function bench(declare = true) {
         'sidebar': { kind: 'single', scope: 'root' },
         'main': { kind: 'keyed', scope: 'root' },
         'shell.leading': { kind: 'single', scope: 'root' },
+        'conversation.header.leading': { kind: 'single', scope: 'root' },
       } },
       SidebarFrame,
     )
@@ -79,6 +81,13 @@ describe('ui-sidebar apply', () => {
     expect(leading[0]!.component).toBe(HeaderLeadingControls)
     expect(leading[0]!.locale).toBe('sidebar')
     expect(leading[0]!.inject).toBe(b.slots.entries('sidebar')[0]!.inject)
+    // The narrow-frame drawer Logo rides the same inject face; the component
+    // self-gates on the mobile breakpoint and renders null on wide viewports.
+    const logo = b.slots.entries('conversation.header.leading')
+    expect(logo).toHaveLength(1)
+    expect(logo[0]!.component).toBe(MobileDrawerLogo)
+    expect(logo[0]!.locale).toBe('sidebar')
+    expect(logo[0]!.inject).toBe(b.slots.entries('sidebar')[0]!.inject)
     const injected = (b.slots.entries('sidebar')[0]!.inject as () => SidebarRootInjected)()
     expect(Object.keys(injected)).toEqual(['startSession', 'toggleSidebar', 'selectPanel', 'hooks'])
     expect(injected.hooks.panels.getSnapshot()).toEqual([])
