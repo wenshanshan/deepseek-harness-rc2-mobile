@@ -323,7 +323,12 @@ export function ProjectRowItem({ group, containsCurrentDescendant = false, onTog
       role="treeitem"
       aria-expanded={row.expanded}
       onClick={onToggle}
-      onPointerDown={dragGuard.onPointerDown}
+      onPointerDown={(e) => {
+        // Same touch one-tap rule as session rows: opening on the first touch
+        // pointerdown so the first tap toggles the group.
+        if (e.pointerType === 'touch') onToggle()
+        else dragGuard.onPointerDown(e)
+      }}
       onPointerMove={dragGuard.onPointerMove}
       onPointerUp={dragGuard.onPointerUp}
       onPointerCancel={dragGuard.onPointerUp}
@@ -568,6 +573,12 @@ export function SearchResultItem({ result, currentId, onOpen, onUnarchive, t }: 
       aria-selected={selected}
       aria-description={result.archived ? t('toast.archivedNotOpenable') : undefined}
       onClick={() => { onOpen(result.id) }}
+      onPointerDown={(e) => {
+        // Touch one-tap: a tap on a non-button row may not produce a click
+        // until a second tap; opening on the first touch pointerdown matches
+        // native list behavior.
+        if (e.pointerType === 'touch') onOpen(result.id)
+      }}
     >
       <span className={css.searchResultHeading}>
         {/* Like session rows, the leading slot owns every row marker; on
@@ -677,7 +688,16 @@ export function SessionNodeItem({
       aria-selected={selected}
       aria-description={row.archived ? t('toast.archivedNotOpenable') : undefined}
       onClick={() => { onOpen(node.id) }}
-      onPointerDown={dragGuard.onPointerDown}
+      onPointerDown={(e) => {
+        // Touch screens have no click-latching: a tap on a non-button row may
+        // only focus/highlight it, and the real click arrives on a second tap.
+        // Opening on the first touch pointerdown makes the row open on the
+        // first tap, exactly like a native list item. Mouse and trackpad keep
+        // the click path (pointerdown would also open while the user is about
+        // to drag, and drag is still enabled there).
+        if (e.pointerType === 'touch') onOpen(node.id)
+        else dragGuard.onPointerDown(e)
+      }}
       onPointerMove={dragGuard.onPointerMove}
       onPointerUp={dragGuard.onPointerUp}
       onPointerCancel={dragGuard.onPointerUp}
