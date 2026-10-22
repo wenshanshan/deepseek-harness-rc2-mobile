@@ -65,6 +65,29 @@ it('covers the application without showing an unfinished step while durable sett
   expect(document.querySelector('[data-desktop-onboarding]')).toBeNull()
 })
 
+it('reserves the illustration geometry, then shows the deferred artwork chunk', async () => {
+  mount('welcome')
+  // The images ship in their own chunk: the first frame keeps the page geometry.
+  expect(document.querySelector('[class*="welcomeArtwork"]')).not.toBeNull()
+  expect(document.querySelector('[class*="welcomeArtwork"] img')).toBeNull()
+  await vi.waitFor(() => { expect(document.querySelectorAll('[class*="welcomeArtwork"] img')).toHaveLength(2) })
+  const images = [...document.querySelectorAll('[class*="welcomeArtwork"] img')]
+  for (const image of images) expect(image.getAttribute('src')).toMatch(/onboarding-welcome/)
+  // The two theme variants are distinct artwork files.
+  expect(images[0]!.getAttribute('src')).not.toBe(images[1]!.getAttribute('src'))
+})
+
+it('selects the localized artwork variant inside the chunk', async () => {
+  mount('credit', 'positive', 'ready', en)
+  await vi.waitFor(() => { expect(document.querySelector('[class*="creditIllustration"] img')).not.toBeNull() })
+  const enArt = document.querySelector('[class*="creditIllustration"] img')!.getAttribute('src')
+  cleanup()
+  mount('credit', 'positive', 'ready', zh)
+  await vi.waitFor(() => { expect(document.querySelector('[class*="creditIllustration"] img')).not.toBeNull() })
+  const zhArt = document.querySelector('[class*="creditIllustration"] img')!.getAttribute('src')
+  expect(zhArt).not.toBe(enArt)
+})
+
 it.each(['zero', 'positive', 'bonus', 'failed', 'loading'] as const)('always offers recharge with %s balance and only confirms known unavailable credit', async (balance) => {
   const operations = mount('credit', balance)
   expect(screen.getByRole('button', { name: zh.onboardingTopUp })).toBeTruthy()

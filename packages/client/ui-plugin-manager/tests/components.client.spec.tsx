@@ -784,12 +784,14 @@ describe('PluginManagerPage', () => {
     expect(detailImage.width).toBe(36)
   })
 
-  it('shows a known bundle preview in its details before activation, follows the UI language, and survives decode failure', () => {
+  it('shows a known bundle preview in its details before activation, follows the UI language, and survives decode failure', async () => {
     const name = '@deepseek-ai/dsh-experimental-badge-skill-bundle'
     const { actions, setLanguage } = renderTab({ packages: [pkg({ name, enabled: false }), pkg()] })
     expect(screen.queryByRole('img')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: `View ${name}` }))
-    const english = screen.getByRole('img', { name: en.previewAlt.replace('{name}', name) }).getAttribute('src')
+    // The artwork ships in its own chunk, so the detail page suspends until it arrives.
+    const englishImage = await screen.findByRole('img', { name: en.previewAlt.replace('{name}', name) })
+    const english = englishImage.getAttribute('src')
     expect(english).toMatch(/badge-skill-preview\.svg$/)
     setLanguage(zh)
     const chinese = screen.getByRole('img', { name: zh.previewAlt.replace('{name}', name) })
@@ -810,12 +812,12 @@ describe('PluginManagerPage', () => {
     expect(screen.queryByRole('img')).toBeNull()
   })
 
-  it('places the new voice illustration after its description and switches the single image with the UI language', () => {
+  it('places the new voice illustration after its description and switches the single image with the UI language', async () => {
     const name = '@deepseek-ai/dsh-experimental-voice-input-bundle'
     const description = 'Turn speech into local notes.'
     const { setLanguage } = renderTab({ packages: [pkg({ name, enabled: false, meta: { description }, rows: [row()] })] })
     fireEvent.click(screen.getByRole('button', { name: `View ${name}` }))
-    const image = screen.getByRole('img')
+    const image = await screen.findByRole('img')
     expect(image.getAttribute('src')).toMatch(/voice-input-preview\.svg$/u)
     expect(screen.getByText(description).compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(image.compareDocumentPosition(screen.getByRole('heading', { name: en.partsLabel })) & Node.DOCUMENT_POSITION_FOLLOWING)

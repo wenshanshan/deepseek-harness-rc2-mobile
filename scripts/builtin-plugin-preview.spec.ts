@@ -6,7 +6,8 @@ import ts from 'typescript'
 import { expect, it, onTestFinished } from 'vitest'
 import { OPTIONAL_BUNDLES } from '../packages/boot/app-boot/src/profile.ts'
 
-const pagePath = resolve(import.meta.dirname, '../packages/client/ui-plugin-manager/src/client/PluginManagerPage.tsx')
+// The map lives in the deferred artwork chunk; the detail page only names the bundles it shows.
+const pagePath = resolve(import.meta.dirname, '../packages/client/ui-plugin-manager/src/client/BundlePreview.tsx')
 
 it('keeps every registered preview a single self-contained 640×300 SVG with English and Chinese variants', () => {
   const page = ts.createSourceFile(pagePath, readFileSync(pagePath, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)

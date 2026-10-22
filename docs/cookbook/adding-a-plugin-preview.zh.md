@@ -2,7 +2,7 @@
 
 [English](adding-a-plugin-preview.md) | 中文
 
-插件管理拥有内置组合包的可选功能配图。编辑其内部 `BUNDLE_PREVIEWS` 映射时遵循本指引。包不能通过 manifest 或 exports 声明配图；第三方插件没有配图接口。
+插件管理拥有内置组合包的可选功能配图。编辑其内部 `BUNDLE_PREVIEWS` 映射时遵循本指引。该映射及其 SVG 导入位于延迟加载的 `BundlePreview.tsx` 客户端 chunk 内，详情页首次显示配图时才请求它。包不能通过 manifest 或 exports 声明配图；第三方插件没有配图接口。
 
 ## 1. 判断是否需要配图
 
@@ -23,7 +23,7 @@ SVG 必须自包含：不使用字体、远程资源、脚本、事件处理器�
 
 ## 3. 注册内部双语配图
 
-将 `<feature>-preview.svg` 和 `<feature>-preview.zh.svg` 放在[插件管理素材目录](../../packages/client/ui-plugin-manager/src/client/assets/)下。在 [PluginManagerPage.tsx](../../packages/client/ui-plugin-manager/src/client/PluginManagerPage.tsx) 中导入两者，再向 `BUNDLE_PREVIEWS` 添加一个精确的内置包名：
+将 `<feature>-preview.svg` 和 `<feature>-preview.zh.svg` 放在[插件管理素材目录](../../packages/client/ui-plugin-manager/src/client/assets/)下。在 [BundlePreview.tsx](../../packages/client/ui-plugin-manager/src/client/BundlePreview.tsx) 中导入两者，再向 `BUNDLE_PREVIEWS` 添加一个精确的内置包名。仅有一个包名不会显示配图：还要把它加入 [bundle-previews.ts](../../packages/client/ui-plugin-manager/src/client/bundle-previews.ts) 的 `BUNDLE_PREVIEW_NAMES`，详情页据此判断是否需要请求该 chunk。
 
 ```ts ignore-check
 import examplePreview from './assets/example-preview.svg'

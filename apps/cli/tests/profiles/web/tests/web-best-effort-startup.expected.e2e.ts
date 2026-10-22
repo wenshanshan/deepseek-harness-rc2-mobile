@@ -165,7 +165,10 @@ describe.skipIf(!builtArtifactsExist)('dsh Web profile best-effort startup', () 
       if (cookie === undefined) throw new Error('Web authentication response did not set a cookie')
       const page = await fetch(new URL('/', startup.url), { headers: { cookie } })
       const html = await page.text()
-      expect(html).toContain('<div id="root"></div>')
+      // The served document paints its own loading skeleton inside #root, so
+      // the mount point is no longer an empty element.
+      expect(html).toContain('<div id="root">')
+      expect(html).toContain('data-dsh-boot')
       expect(html).toContain('__DSH_BOOT__')
       expect(readFileSync(fixture.events, 'utf8')).toBe('good apply\n')
       expect(startup.stderr).toContain('web-probe-import-failure')

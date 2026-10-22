@@ -8,7 +8,7 @@
  * the page declares.
  */
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { PluginInstallFailureKind, Registry } from '@deepseek-ai/dsh-api-remotes/client'
 import {
@@ -32,11 +32,8 @@ import {
 import { managementText, noticeText, packageText, registryText, restartText, rowText, type Translate } from './presentation.ts'
 import type { PluginPackageRef, PluginRowRef, PluginsSubject } from './slot-contract.ts'
 import type { ConfigPageForm } from './slot-contract.ts'
+import { BUNDLE_PREVIEW_NAMES, type PreviewBundleName } from './bundle-previews.ts'
 import css from './PluginManagerPage.module.css'
-import badgeSkillPreview from './assets/badge-skill-preview.svg'
-import badgeSkillPreviewZh from './assets/badge-skill-preview.zh.svg'
-import voiceInputPreview from './assets/voice-input-preview.svg'
-import voiceInputPreviewZh from './assets/voice-input-preview.zh.svg'
 
 /** Full component props assembled by the main slot renderer. */
 export type PluginManagerPageProps =
@@ -159,11 +156,17 @@ function orderOptionalBundles(packages: readonly PackageView[]): PackageView[] {
   return [...packages].sort((a, b) => optionalBundleRank(a.name) - optionalBundleRank(b.name))
 }
 
-/** Feature previews of official bundles, shown on their detail pages and selected by UI language. */
-const BUNDLE_PREVIEWS = new Map<string, Readonly<Record<'en' | 'zh', string>>>([
-  ['@deepseek-ai/dsh-experimental-badge-skill-bundle', { en: badgeSkillPreview, zh: badgeSkillPreviewZh }],
-  ['@deepseek-ai/dsh-experimental-voice-input-bundle', { en: voiceInputPreview, zh: voiceInputPreviewZh }],
-])
+/**
+ * The artwork chunk carrying the preview images. It is a separate client chunk
+ * because the four inlined SVGs are most of this package's browser bytes, and
+ * only these two detail pages show them.
+ */
+const LoadedBundlePreview = lazy(async () => ({ default: (await import('./BundlePreview.tsx')).BundlePreview }))
+
+/** Whether a bundle's detail page shows feature artwork, decided without loading the chunk. */
+function previewBundle(name: string): PreviewBundleName | undefined {
+  return BUNDLE_PREVIEW_NAMES.find(preview => preview === name)
+}
 
 /** How long a toast holds: long enough to read a failure that names what broke. */
 function toastHoldMs(text: string): number {
@@ -248,12 +251,20 @@ function PackageArtwork({ src, row = false, size = row ? ROW_ARTWORK_SIZE : CARD
     : <img className={css.packageImage} src={src} width={size} height={size} alt="" onError={() => { setFailedSource(src) }} />
 }
 
-/** A bundle's feature preview; a failed decode is reported in place without blocking management. */
-function PackagePreview({ src, title, t }: { readonly src: string; readonly title: string; readonly t: Translate }): ReactNode {
-  const [failedSource, setFailedSource] = useState<string>()
-  return src === failedSource
-    ? <p className={css.reason} role="status">{t('previewUnavailable')}</p>
-    : <img className={css.packagePreview} src={src} alt={t('previewAlt', { name: title })} onError={() => { setFailedSource(src) }} />
+/**
+ * A bundle's feature preview; a failed decode is reported in place without blocking management.
+ * The images arrive with their own chunk, so this reserves the layout until then.
+ */
+function PackagePreview({ bundle, title, t, resolveText }: {
+  readonly bundle: PreviewBundleName
+  readonly title: string
+  readonly t: Translate
+  readonly resolveText: ResolveText
+}): ReactNode {
+  return <Suspense fallback={null}>
+    <LoadedBundlePreview bundle={bundle} resolveText={resolveText} imageClassName={`${css.packagePreview}`}
+      failureClassName={`${css.reason}`} alt={t('previewAlt', { name: title })} unavailable={t('previewUnavailable')} />
+  </Suspense>
 }
 
 /** A row's switch: locked, saying why, when the Host refuses to address the row through the profile patch. */
@@ -720,8 +731,7 @@ function PackageDetail({
 }): ReactNode {
   const { title, description, beta } = packageText(pkg, resolveText)
   const status = packageStatus(pkg)
-  const previews = BUNDLE_PREVIEWS.get(pkg.name)
-  const preview = previews === undefined ? undefined : resolveText(previews)
+  const preview = previewBundle(pkg.name)
   const subject: PluginsSubject = { kind: 'bundle', pkg: packageRef(pkg) }
   return (
     <div className={css.detail} data-plugin-detail={pkg.name}>
@@ -774,7 +784,7 @@ function PackageDetail({
       <MetadataError error={pkg.meta?.error} t={t} />
       {pkg.error === undefined ? null : <p className={css.reason} role="status">{t('reasonLabel')}: {managementText(pkg.error, t)}</p>}
       {pkg.readOnlyReason === undefined ? null : <p className={css.reason} role="status">{managementText({ code: pkg.readOnlyReason }, t)}</p>}
-      {preview === undefined ? null : <PackagePreview src={preview} title={title} t={t} />}
+      {preview === undefined ? null : <PackagePreview bundle={preview} title={title} t={t} resolveText={resolveText} />}
       <div className={css.detailSections}>
         {configured
           ? (

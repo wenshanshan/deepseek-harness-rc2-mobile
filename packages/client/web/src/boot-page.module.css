@@ -42,6 +42,19 @@
   color: var(--dsw-alias-label-tertiary, var(--dsh-boot-label-tertiary));
 }
 
+.progress {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary, var(--dsh-boot-label-tertiary));
+  font-variant-numeric: tabular-nums;
+}
+
+/* The count sits beside the authored hint rather than inside it, so the
+   hint's text stays exactly "Loading plugins…" for locators and screenshots. */
+.progress:empty {
+  display: none;
+}
+
 .spinner {
   position: relative;
   width: 20px;

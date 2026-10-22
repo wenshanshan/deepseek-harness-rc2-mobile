@@ -2,7 +2,7 @@
 
 English | [中文](adding-a-plugin-preview.zh.md)
 
-Plugin Manager owns optional feature illustrations for built-in bundles. Follow this guide when editing its internal `BUNDLE_PREVIEWS` map. Packages cannot declare illustrations through their manifest or exports; third-party plugins have no preview interface.
+Plugin Manager owns optional feature illustrations for built-in bundles. Follow this guide when editing its internal `BUNDLE_PREVIEWS` map. The map and its SVG imports live in the deferred `BundlePreview.tsx` client chunk, which the detail page requests when it first shows artwork. Packages cannot declare illustrations through their manifest or exports; third-party plugins have no preview interface.
 
 ## 1. Decide whether an image helps
 
@@ -19,11 +19,11 @@ Show one concrete result or recognizable capability. Omit the map entry when the
 | Typography | Outline lettering into paths using a suitable font. Match the feature and neighboring UI; do not rely on browser font substitution. |
 | Theme | Compare light and dark themes. One illustration serves both; avoid transparent dark text that disappears on dark backgrounds. |
 
-The SVG is self-contained: no fonts, remote resources, scripts, handlers, animation, stylesheets, `text`, or `foreignObject`. An `image` element may embed an unchanged official PNG/JPEG/WebP brand asset as a base64 data URL. Small plugin icons remain geometry-only. This exception preserves brand artwork and does not permit raster preview files. Validation checks the data-URL envelope, not decoded pixels; the page renders the SVG through `<img>`. Both raw language files together must stay within 1 MiB. They are embedded as base64 data URLs in the Plugin Manager client bundle, so keep them small.
+The SVG is self-contained: no fonts, remote resources, scripts, handlers, animation, stylesheets, `text`, or `foreignObject`. An `image` element may embed an unchanged official PNG/JPEG/WebP brand asset as a base64 data URL. Small plugin icons remain geometry-only. This exception preserves brand artwork and does not permit raster preview files. Validation checks the data-URL envelope, not decoded pixels; the page renders the SVG through `<img>`. Both raw language files together must stay within 1 MiB. They are embedded as base64 data URLs in the Plugin Manager's deferred preview chunk, so keep them small; that chunk is not part of first load.
 
 ## 3. Register the internal pair
 
-Put `<feature>-preview.svg` and `<feature>-preview.zh.svg` under [Plugin Manager assets](../../packages/client/ui-plugin-manager/src/client/assets/). Import both into [PluginManagerPage.tsx](../../packages/client/ui-plugin-manager/src/client/PluginManagerPage.tsx), then add one exact built-in package name to `BUNDLE_PREVIEWS`:
+Put `<feature>-preview.svg` and `<feature>-preview.zh.svg` under [Plugin Manager assets](../../packages/client/ui-plugin-manager/src/client/assets/). Import both into [BundlePreview.tsx](../../packages/client/ui-plugin-manager/src/client/BundlePreview.tsx), then add one exact built-in package name to `BUNDLE_PREVIEWS`. A bundle name alone does not show artwork: add it to `BUNDLE_PREVIEW_NAMES` in [bundle-previews.ts](../../packages/client/ui-plugin-manager/src/client/bundle-previews.ts) as well, which is what the detail page checks before requesting the chunk.
 
 ```ts ignore-check
 import examplePreview from './assets/example-preview.svg'

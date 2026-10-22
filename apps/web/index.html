@@ -7,9 +7,70 @@
     <link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" media="(prefers-color-scheme: light)" />
     <title>DSH Local Build</title>
+    <style>
+      /* The loading skeleton ships in the document, so the first frame paints
+         before any script arrives; BootPage adopts these nodes on boot and the
+         stylesheet's own tokens take over from there. The height chain is
+         restated because the application stylesheet arrives with the bundle. */
+      html, body, #root { height: 100%; margin: 0; }
+      .dsh-boot-static {
+        --dsh-boot-label-primary: #0f1115;
+        --dsh-boot-label-tertiary: #81858c;
+        --dsh-boot-border: rgb(0 0 0 / 10%);
+        --dsh-boot-brand: #0f1115;
+        height: 100%;
+        display: grid;
+        place-items: center;
+        background: var(--dsw-alias-bg-base, var(--dsh-boot-bg, Canvas));
+        color: var(--dsh-boot-label-primary);
+        font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      }
+      /* Before the theme preference resolves, follow the operating system. */
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-ds-theme-source]) .dsh-boot-static {
+          --dsh-boot-label-primary: #f9fafb;
+          --dsh-boot-label-tertiary: #adb2b8;
+          --dsh-boot-border: rgb(255 255 255 / 12%);
+          --dsh-boot-brand: #f9fafb;
+        }
+      }
+      /* Once it resolves, the document's own theme attribute is authoritative. */
+      body[data-ds-dark-theme] .dsh-boot-static {
+        --dsh-boot-label-primary: #f9fafb;
+        --dsh-boot-label-tertiary: #adb2b8;
+        --dsh-boot-border: rgb(255 255 255 / 12%);
+        --dsh-boot-brand: #f9fafb;
+      }
+      .dsh-boot-card { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+      .dsh-boot-wordmark { font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: .08em; }
+      .dsh-boot-hint { font-size: 12px; line-height: 18px; color: var(--dsh-boot-label-tertiary); }
+      .dsh-boot-progress { font-size: 12px; line-height: 18px; color: var(--dsh-boot-label-tertiary); font-variant-numeric: tabular-nums; }
+      .dsh-boot-progress:empty { display: none; }
+      .dsh-boot-spinner {
+        position: relative;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid var(--dsh-boot-border);
+        animation: dsh-boot-spin .8s linear infinite;
+      }
+      .dsh-boot-spinner::after {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        border-radius: inherit;
+        background: conic-gradient(var(--dsh-boot-brand) var(--dsh-boot-arc, 72deg), transparent 0);
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+        mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
+      }
+      @keyframes dsh-boot-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        .dsh-boot-spinner { animation: none; }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="dsh-boot-static" data-dsh-boot=""><div class="dsh-boot-card" data-dsh-boot-card=""><div class="dsh-boot-wordmark" data-dsh-boot-wordmark="">HARNESS</div><div class="dsh-boot-spinner" data-dsh-boot-spinner=""></div><div class="dsh-boot-hint" data-dsh-boot-hint="">Loading plugins…</div><div class="dsh-boot-progress" data-dsh-boot-progress=""></div></div></div></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
