@@ -95,13 +95,19 @@ English | [中文](README.zh.md)
 
 ## 现在长什么样
 
-> 示例截图已隐去本地会话、模型配置与账号信息（按你的要求，不含任何私人/项目内容）。
+### 手机上的样子（实拍，1179×2556）
 
-### 手机上的样子（390×844 视口）
+![](docs/screenshots/mobile-1.jpg)
 
-![](docs/screenshots/mobile-sessions.png)
+![](docs/screenshots/mobile-2.jpg)
+
+![](docs/screenshots/mobile-3.jpg)
 
 窄屏下首页干净、无侧边栏占位；触屏交互按「先稳定再顺手」的顺序打磨（详见上方变更流水账）。
+
+> 另有纯示例截图（已隐去本地会话、模型配置与账号信息）：
+
+![](docs/screenshots/mobile-sessions.png)
 
 ---
 
