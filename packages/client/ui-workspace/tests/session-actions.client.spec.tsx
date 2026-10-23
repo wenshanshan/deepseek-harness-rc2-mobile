@@ -103,6 +103,34 @@ const actionRow: ActionRowProps = { ...ROW, t, ...standard }
 /** Standard and locale seats of a `shell.overlay` entry (no owner share). */
 const overlay: OverlayProps = { t, ...standard }
 
+/**
+ * The Session-scope standard seat the header archive button receives
+ * (`conversation.session.header.utilities` is a session-scope seat). The
+ * component reads only the injected archive share, so unused members are
+ * loud stubs; the archive share spreads over them at the render site.
+ */
+const unused = (): never => { throw new Error('not consumed by the header archive button') }
+const sessionKit = {
+  sessionId: sid('one'),
+  useSession: unused,
+  useProjection: unused,
+  useConversation: unused,
+  useChat: unused,
+  useTrajectory: unused,
+  useInput: unused,
+  useAccess: () => true,
+  inputActions: {
+    captureInsertion: unused,
+    insertText: unused,
+    setDraft: unused,
+    persistDraft: unused,
+    addAttachments: unused,
+    removeAttachment: unused,
+    pruneAttachments: unused,
+    submit: unused,
+  },
+}
+
 /** An open menu whose setter records the entries' dismissal. */
 function openMenu() {
   const setMenuOpen = vi.fn()
@@ -229,11 +257,11 @@ describe('archive action', () => {
 
   it('header button archives and restores the open Session', () => {
     const archive = archiveShare()
-    const view = render(<ArchiveSessionHeaderButton {...actionRow} {...archive} />)
+    const view = render(<ArchiveSessionHeaderButton {...actionRow} {...archive} {...sessionKit} />)
     fireEvent.click(screen.getByRole('button', { name: '归档会话' }))
     expect(archive.archiveSession).toHaveBeenCalledWith(sid('one'))
     expect(archive.unarchiveSession).not.toHaveBeenCalled()
-    view.rerender(<ArchiveSessionHeaderButton {...actionRow} {...archive} useArchived={hook(idSet('one'))} />)
+    view.rerender(<ArchiveSessionHeaderButton {...actionRow} {...archive} useArchived={hook(idSet('one'))} {...sessionKit} />)
     fireEvent.click(screen.getByRole('button', { name: '取消归档' }))
     expect(archive.unarchiveSession).toHaveBeenCalledWith(sid('one'))
     expect(archive.archiveSession).toHaveBeenCalledOnce()
