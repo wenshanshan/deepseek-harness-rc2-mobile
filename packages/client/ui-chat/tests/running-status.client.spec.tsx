@@ -68,13 +68,21 @@ describe('RunningStatus', () => {
     expect(view.content()?.textContent).not.toContain('-')
   })
 
-  it('appends settled credits to the running label only when reported', () => {
+  it('appends the settled credit cost as a rounded count beside a coin glyph', () => {
     const view = statusHarness(1_000)
     expect(view.content()?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···$/)
+    expect(view.container.querySelector('[data-chat-credits]')).toBeNull()
     view.set(1_000, 1.75)
-    expect(view.content()?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···，已消耗 1\.75 积分$/)
+    const badge = view.container.querySelector('[data-chat-credits="1.75"]')
+    expect(badge).not.toBeNull()
+    expect(badge?.querySelector('svg')).not.toBeNull()
+    expect(badge?.textContent).toBe('积分消耗1.75')
+    view.set(1_000, 0.2)
+    expect(view.container.querySelector('[data-chat-credits="0.20"]')).not.toBeNull()
+    view.set(1_000, 1.234567)
+    expect(view.container.querySelector('[data-chat-credits="1.23"]')).not.toBeNull()
     view.set(1_000)
-    expect(view.content()?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···$/)
+    expect(view.container.querySelector('[data-chat-credits]')).toBeNull()
   })
 
 })

@@ -2,6 +2,7 @@
 import { memo, useEffect, useState } from 'react'
 import { TextShimmer } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
+import { CreditsBadge } from './CreditsBadge.tsx'
 import { formatRunDuration, LIVE_RUN_CLOCK_INTERVAL_MS } from './message-chrome.ts'
 import { RunningWhaleTail } from './RunningWhaleTail.tsx'
 import a11yCss from './accessibility.module.css'
@@ -30,16 +31,15 @@ export const RunningStatus = memo(function RunningStatus({ startTime, credits, t
   const label = startTime === undefined ? t('chat.deepDiving') : t('chat.deepDivingFor', {
     duration: formatRunDuration(Math.max(1000, now - startTime), t).map(part => part.text).join(''),
   })
-  // One string child keeps TextShimmer's decorative copy an attribute, not a
-  // duplicated node tree; the credits suffix rides the same shimmer highlight.
-  const text = credits === undefined ? label : label + t('chat.deepDivingCredits', { credits })
   return (
     <div className={css.running} data-chat-running data-chat-running-credits={credits}>
       <span className={a11yCss.visuallyHidden} role="status" aria-live="polite" aria-atomic="true">{t('chat.deepDiving')}</span>
       <span className={css.runningDivider} aria-hidden="true" />
       <span className={css.runningContent}>
         <RunningWhaleTail />
-        <TextShimmer active className={css.runningText}>{text}</TextShimmer>
+        {/* The shimmer spans text only; the credit readout keeps its glyph outside it. */}
+        <TextShimmer active className={css.runningText}>{label}</TextShimmer>
+        {credits !== undefined && <CreditsBadge credits={credits} t={t} />}
       </span>
     </div>
   )

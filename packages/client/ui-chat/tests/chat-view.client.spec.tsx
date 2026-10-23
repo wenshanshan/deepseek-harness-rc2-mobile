@@ -3280,6 +3280,23 @@ describe('ChatView', () => {
     expect(view.getByRole('button', { name: /用量/ })).toBeTruthy()
   })
 
+  it('shows a settled Turn credit cost as a rounded coin count in its process row', () => {
+    const h = makeHarness({
+      chat: chatSnapshotFixture({
+        nodes: [user(1, 'hi'), assistant(2, 'answer', 1)],
+        turnTimings: new Map([[1, { startTime: 1_000, endTime: 20_000 }]]),
+        turnEnds: new Map([[1, 2]]),
+        turnCredits: new Map([[1, 0.234]]),
+      }),
+    })
+    const view = render(<h.ChatView {...h.props} />)
+    const control = turnProcessControl(view.container)!
+    const badge = control.querySelector('[data-chat-credits="0.23"]')
+    expect(badge).not.toBeNull()
+    expect(badge?.querySelector('svg')).not.toBeNull()
+    expect(control.textContent).toBe('已完成，用时 19秒积分消耗0.23')
+  })
+
   it('summarizes an interrupted turn as stopped, without elapsed time, and keeps it open', () => {
     const answer: AssistantMessageNode = {
       kind: 'assistant', seq: 2, time: 2_000, turn: 1, step: 1, blocks: [{ kind: 'text', text: 'answer' }],
@@ -3532,8 +3549,9 @@ describe('ChatView', () => {
     const view = render(<h.ChatView {...h.props} />)
     // The Turn's control Node is the credit owner, yet it renders nothing while open.
     expect(turnProcessControl(view.container)).toBeNull()
-    expect(runningContent(view.container)?.textContent)
-      .toMatch(/^深度求索中，用时 \d+秒 ···，已消耗 1\.75 积分$/)
+    const badge = runningContent(view.container)?.querySelector('[data-chat-credits="1.75"]')
+    expect(badge).not.toBeNull()
+    expect(badge?.querySelector('svg')).not.toBeNull()
   }))
 
   it('keeps the Tool renderer mounted when a running call settles into log order', () => {

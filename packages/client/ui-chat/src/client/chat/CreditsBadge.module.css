@@ -1,0 +1,19 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 3px;
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.icon {
+  flex: none;
+  width: calc(13px + var(--dsh-content-font-delta, 0px));
+  height: calc(13px + var(--dsh-content-font-delta, 0px));
+}
+
+.value {
+  font-size: inherit;
+  line-height: inherit;
+}

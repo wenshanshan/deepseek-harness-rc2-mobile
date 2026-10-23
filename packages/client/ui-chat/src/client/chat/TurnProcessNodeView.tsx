@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { IconChevronDownOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatNodeViewProps } from '../contract/slots.ts'
 import { turnProcessAlwaysOpen } from '../contract/turn-process.ts'
+import { CreditsBadge } from './CreditsBadge.tsx'
 import { formatRunDuration } from './message-chrome.ts'
 import a11yCss from './accessibility.module.css'
 import css from './TurnProcessNodeView.module.css'
@@ -56,10 +57,8 @@ export const TurnProcessNodeView = memo(function TurnProcessNodeView({
           {duration?.map((part, index) => (
             <span key={index} className={part.numeric ? css.durationNumber : undefined}>{part.text}</span>
           ))}
-          {credits !== undefined && (
-            <span className={css.durationNumber}>{t('message.turnProcess.credits', { credits })}</span>
-          )}
         </span>
+        {credits !== undefined && <CreditsBadge credits={credits} t={t} />}
         {canCollapse && <IconChevronDownOutlineRegular className={css.chevron} />}
       </button>
     </>

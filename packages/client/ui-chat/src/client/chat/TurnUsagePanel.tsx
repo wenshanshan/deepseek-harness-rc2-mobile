@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { IconDatabaseOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TurnTokenUsage } from '../contract/chat-nodes.ts'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
+import { formatCredits } from './CreditsBadge.tsx'
 import { formatCacheHitPercent, formatExactTokens, formatTokens } from './token-format.ts'
 import { MEASURE_STYLE, useStatDialog } from './stat-dialog.ts'
 import css from './TurnUsagePanel.module.css'
@@ -69,7 +70,7 @@ export function TurnUsagePanel({ usage, t }: TurnUsagePanelProps) {
             {usage.creditsUsed !== undefined && (
               <>
                 <dt>{t('message.turnUsage.credits')}</dt>
-                <dd>{usage.creditsUsed}</dd>
+                <dd>{formatCredits(usage.creditsUsed)}</dd>
               </>
             )}
             {routes !== '' && (
