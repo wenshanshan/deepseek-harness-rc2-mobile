@@ -36,6 +36,13 @@ interface TurnProcessState {
   readonly messageCount: number
   readonly toolCallCount: number
   readonly subagentCount: number
+  readonly creditsUsed: number
+}
+
+/** Non-negative finite credit cost, or absence for anything else. */
+function creditCost(usage: unknown): number | undefined {
+  const value = (usage as { creditsUsed?: unknown } | null | undefined)?.creditsUsed
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
 }
 
 type ConversationEvent = Parameters<ConversationNodeDefinition['match']>[0]
@@ -103,6 +110,7 @@ function fallbackState(context: ConversationNodeContext<TurnProcessState>): Turn
     messageCount: 0,
     toolCallCount: 0,
     subagentCount: 0,
+    creditsUsed: 0,
   }
   for (const match of context.matches) state = updateProcessState(state, match.event)
   return state
@@ -125,6 +133,10 @@ function processSpec(state: TurnProcessState, turn: TurnLocation): TurnProcessSp
   const controlAnchorSeq = state.controlAnchorSeq ?? turn.start?.seq
   if (controlAnchorSeq === undefined) return null
   const answer = latestAnswer(turn)
+  // The turn-tail aggregate is exact and arrives with turn settlement; the
+  // running state sum only counts settled attempts, so they can coexist while
+  // the closing attempt is still streaming.
+  const creditsUsed = turn.data.get('turn-tail')?.tokenUsage?.creditsUsed ?? state.creditsUsed
   const counts = {
     messageCount: answer === null
       ? state.messageCount
@@ -143,6 +155,7 @@ function processSpec(state: TurnProcessState, turn: TurnLocation): TurnProcessSp
       answerStep: null,
       inlineReasoning: false,
       ...counts,
+      ...creditsUsed > 0 ? { creditsUsed } : {},
     }
   }
   const inlineReasoning = answer.blocks.some(block => block.kind === 'reasoning' && block.text.trim() !== '')
@@ -164,6 +177,7 @@ function processSpec(state: TurnProcessState, turn: TurnLocation): TurnProcessSp
     answerStep: answer.step,
     inlineReasoning,
     ...counts,
+    ...creditsUsed > 0 ? { creditsUsed } : {},
   }
 }
 
@@ -183,6 +197,12 @@ function updateProcessState(state: TurnProcessState, event: ConversationEvent): 
       toolCallCount: current.toolCallCount + (subagent ? 0 : 1),
       subagentCount: current.subagentCount + (subagent ? 1 : 0),
     }
+  }
+  // Each settled Assistant carries its exact usage sample; counting only this
+  // event (never stream chunks) keeps the running sum one-per-attempt.
+  if (event.type === 'assistant/message') {
+    const settled = creditCost(event.data.usage)
+    if (settled !== undefined) current = { ...current, creditsUsed: current.creditsUsed + settled }
   }
   const evidence = processEvidence(event)
   if (evidence === undefined) return current
@@ -234,6 +254,7 @@ export const turnProcessDefinition: ConversationNodeDefinition<TurnProcessState>
       messageCount: 0,
       toolCallCount: 0,
       subagentCount: 0,
+      creditsUsed: 0,
     }
   },
   update: (context, match) => updateProcessState(context.state, match.event),
@@ -260,6 +281,7 @@ export const turnProcessDefinition: ConversationNodeDefinition<TurnProcessState>
       && current.data.messageCount === state.messageCount
       && current.data.toolCallCount === state.toolCallCount
       && current.data.subagentCount === state.subagentCount
+      && (current.data.creditsUsed ?? 0) === state.creditsUsed
       && turn.status !== 'closed'
       && latestStep?.status !== 'closed') return previous
     const spec = processSpec(state, turn)
@@ -288,6 +310,7 @@ export const turnProcessDefinition: ConversationNodeDefinition<TurnProcessState>
       && current.data.messageCount === state.messageCount
       && current.data.toolCallCount === state.toolCallCount
       && current.data.subagentCount === state.subagentCount
+      && (current.data.creditsUsed ?? 0) === state.creditsUsed
       && turn.status !== 'closed'
       && turn.steps.at(-1)?.status !== 'closed'
       && current.location === (context.start?.location ?? context.matches[0]?.location)) return current

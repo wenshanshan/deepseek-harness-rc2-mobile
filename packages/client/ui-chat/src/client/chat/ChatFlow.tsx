@@ -24,6 +24,12 @@ export const ChatFlow = memo(function ChatFlow({
       ? location.turn.status === 'open' ? location.turn.start?.time : undefined
       : undefined
   })
+  // The running Turn's turn-process Node carries the running credit sum (the
+  // exact aggregate once published); absence renders no credit text.
+  const runningCredits = useChatNode(latestTurnAnchor ?? '', (node) => {
+    if (node?.kind !== 'turn-process') return undefined
+    return (node.data as { creditsUsed?: number }).creditsUsed
+  })
   const seatProps = {
     nodeStore, useChatNode, useChatNodeBottom, useChatNodeProcess, usePresentation,
     useStore, actions, renderSlot, t, useGroupAction, deferCollapse,
@@ -57,5 +63,7 @@ export const ChatFlow = memo(function ChatFlow({
     const index = pendingInputs.findIndex(item => 'requestId' in item && item.placement === 'transcript')
     if (index !== -1) rows.splice(rows.length - 1, 0, ...pendingRows.splice(index, 1))
   }
-  return [...rows, ...pendingRows, ...running ? [<RunningStatus key="running" startTime={runningStartTime} t={t} />] : []]
+  return [...rows, ...pendingRows, ...running
+    ? [<RunningStatus key="running" startTime={runningStartTime} credits={runningCredits} t={t} />]
+    : []]
 })

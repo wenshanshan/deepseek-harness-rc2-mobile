@@ -95,6 +95,8 @@ export interface ChatTurnProcessPresentation {
   /** A visible input after process output prevents one disclosure from hiding its surrounding groups. */
   readonly hasInterleavedInput: boolean
   readonly compactAnswer: boolean
+  /** Settled credit cost read from the Turn-tail aggregate; undefined while unproven. */
+  readonly creditsUsed?: number
 }
 
 /** Compatibility projection backing the composer stats pills (StatsPills.tsx) and the legacy top-level snapshot fields. */

@@ -81,6 +81,35 @@ describe('deriveTurnTokenUsage', () => {
     })
   })
 
+  it('sums forwarded credits across attempts and drops the bucket when one attempt lacks it', () => {
+    const twoAttempts = completeAttempt(
+      attempt(3, [
+        { type: 'usage', usage: usage({ creditsUsed: 1.25 }) },
+        { type: 'finish', reason: { kind: 'error', failure: { code: 'HTTP', message: 'failed' } } },
+      ]),
+      event(5, 'llm/retry', { turn: 1, step: 1 }),
+      event(6, 'llm/retry-started', { turn: 1, step: 1, retry: 1 }),
+      message(7, usage({ creditsUsed: 0.5, inputTokens: 40, outputTokens: 10, totalTokens: 70, cacheReadTokens: 20 })),
+    )
+    expect(deriveTurnTokenUsage(twoAttempts)?.creditsUsed).toBe(1.75)
+
+    const missingOne = completeAttempt(
+      attempt(3, [
+        { type: 'usage', usage: usage({ creditsUsed: 1.25 }) },
+        { type: 'finish', reason: { kind: 'error', failure: { code: 'HTTP', message: 'failed' } } },
+      ]),
+      event(5, 'llm/retry', { turn: 1, step: 1 }),
+      event(6, 'llm/retry-started', { turn: 1, step: 1, retry: 1 }),
+      message(7, usage({ inputTokens: 40, outputTokens: 10, totalTokens: 70, cacheReadTokens: 20 })),
+    )
+    expect(deriveTurnTokenUsage(missingOne)?.creditsUsed).toBeUndefined()
+  })
+
+  it('rejects a negative or non-finite forwarded credit cost', () => {
+    expect(deriveTurnTokenUsage(completeAttempt(message(3, usage({ creditsUsed: -1 }))))).toBeUndefined()
+    expect(deriveTurnTokenUsage(completeAttempt(message(3, usage({ creditsUsed: Number.NaN }))))).toBeUndefined()
+  })
+
   it('derives an exact total only when both cache buckets are present', () => {
     expect(deriveTurnTokenUsage(completeAttempt(message(3, usage({
       totalTokens: undefined,

@@ -9,15 +9,17 @@ import css from './ChatView.module.css'
 
 interface RunningStatusProps {
   readonly startTime: number | undefined
+  /** Credit cost settled so far in the running Turn; absent when none reported. */
+  readonly credits: number | undefined
   readonly t: ChatViewSlotProps['t']
 }
 
 /**
  * Show live elapsed time after the current Turn's content without announcing ticks.
- * @param props - Current Turn start time and localized copy.
+ * @param props - Current Turn start time, settled credit cost, and localized copy.
  * @returns the blue running indicator; mount only while the Session is running.
  */
-export const RunningStatus = memo(function RunningStatus({ startTime, t }: RunningStatusProps) {
+export const RunningStatus = memo(function RunningStatus({ startTime, credits, t }: RunningStatusProps) {
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
     if (startTime === undefined) return
@@ -28,13 +30,16 @@ export const RunningStatus = memo(function RunningStatus({ startTime, t }: Runni
   const label = startTime === undefined ? t('chat.deepDiving') : t('chat.deepDivingFor', {
     duration: formatRunDuration(Math.max(1000, now - startTime), t).map(part => part.text).join(''),
   })
+  // One string child keeps TextShimmer's decorative copy an attribute, not a
+  // duplicated node tree; the credits suffix rides the same shimmer highlight.
+  const text = credits === undefined ? label : label + t('chat.deepDivingCredits', { credits })
   return (
-    <div className={css.running} data-chat-running>
+    <div className={css.running} data-chat-running data-chat-running-credits={credits}>
       <span className={a11yCss.visuallyHidden} role="status" aria-live="polite" aria-atomic="true">{t('chat.deepDiving')}</span>
       <span className={css.runningDivider} aria-hidden="true" />
       <span className={css.runningContent}>
         <RunningWhaleTail />
-        <TextShimmer active className={css.runningText}>{label}</TextShimmer>
+        <TextShimmer active className={css.runningText}>{text}</TextShimmer>
       </span>
     </div>
   )

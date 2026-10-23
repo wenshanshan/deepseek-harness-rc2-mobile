@@ -12,12 +12,14 @@ const t = makeTranslate(zh, commonZh)
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(5_000) })
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
-function statusHarness(startTime?: number) {
-  const view = render(<RunningStatus startTime={startTime} t={t} />)
+function statusHarness(startTime?: number, credits?: number) {
+  const view = render(<RunningStatus startTime={startTime} credits={credits} t={t} />)
   return {
     ...view,
     content: () => view.container.querySelector('[data-chat-running] > :last-child'),
-    set: (nextStartTime?: number) => { view.rerender(<RunningStatus startTime={nextStartTime} t={t} />) },
+    set: (nextStartTime?: number, nextCredits?: number) => {
+      view.rerender(<RunningStatus startTime={nextStartTime} credits={nextCredits} t={t} />)
+    },
   }
 }
 
@@ -64,6 +66,15 @@ describe('RunningStatus', () => {
     act(() => { vi.advanceTimersByTime(3_000) })
     expect(view.content()?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···$/)
     expect(view.content()?.textContent).not.toContain('-')
+  })
+
+  it('appends settled credits to the running label only when reported', () => {
+    const view = statusHarness(1_000)
+    expect(view.content()?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···$/)
+    view.set(1_000, 1.75)
+    expect(view.content()?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···，已消耗 1\.75 积分$/)
+    view.set(1_000)
+    expect(view.content()?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···$/)
   })
 
 })

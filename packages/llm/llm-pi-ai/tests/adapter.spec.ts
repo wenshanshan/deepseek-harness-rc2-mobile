@@ -439,6 +439,19 @@ describe('PiAiAdapter provider routing', () => {
   })
 })
 
+describe('usage credit capture', () => {
+  it('reads the gateway credit fields and ignores malformed values', async () => {
+    const { usageCredits } = await import('../src/adapter.ts')
+    expect(usageCredits({ credits_used: 1.25 })).toBe(1.25)
+    expect(usageCredits({ credit: 2 })).toBe(2)
+    expect(usageCredits({ credits: 3 })).toBe(3)
+    expect(usageCredits({})).toBeUndefined()
+    expect(usageCredits({ credits_used: -1 })).toBeUndefined()
+    expect(usageCredits({ credits_used: '2' })).toBeUndefined()
+    expect(usageCredits(undefined)).toBeUndefined()
+  })
+})
+
 describe('provider profile lifecycle', () => {
   it('keeps adapter helpers off the package root', () => {
     for (const helper of [

@@ -18,16 +18,19 @@ import { toPiReplayState } from './replay.ts'
 /**
  * Map pi-ai usage (reasoning folded into output by pi-ai).
  * @param usage - cumulative usage from the terminal pi-ai event.
+ * @param credits - gateway-forwarded billed cost captured from the raw usage
+ *   frame; absent when the endpoint reported none.
  * @returns harness counts with pi-ai's exact total; cache fields appear only
  *   when non-zero (pi-ai reports zeros, not absence).
  */
-export function mapUsage(usage: PiUsage): TokenUsage {
+export function mapUsage(usage: PiUsage, credits?: number): TokenUsage {
   return {
     inputTokens: usage.input,
     outputTokens: usage.output,
     totalTokens: usage.totalTokens,
     ...usage.cacheRead > 0 ? { cacheReadTokens: usage.cacheRead } : {},
     ...usage.cacheWrite > 0 ? { cacheWriteTokens: usage.cacheWrite } : {},
+    ...credits === undefined ? {} : { creditsUsed: credits },
   }
 }
 
@@ -136,6 +139,8 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
  * @param callerSignal - caller cancellation state; an aborted caller makes any
  *   in-band terminal error an aborted finish.
  * @param requestedModel - request model identity recorded for durable replay.
+ * @param credits - gateway-forwarded billed cost captured from the raw usage
+ *   frame; absent when the endpoint reported none.
  * @returns the harness chunks, ending with `usage` then `finish`; throws
  *   `LlmError` (`STREAM_CLOSED`) if the source ends without a terminal event.
  */
@@ -144,6 +149,7 @@ export async function* toStreamChunks(
   contextWindow?: number,
   callerSignal?: AbortSignal,
   requestedModel?: string,
+  credits?: number,
 ): AsyncGenerator<StreamChunk> {
   // pi-ai contentIndex ↔ our block index map 1:1 (both count blocks from 0
   // in stream order), but we track ids per index for tool calls.
@@ -206,7 +212,7 @@ export async function* toStreamChunks(
         }
         break
       case 'done':
-        yield { type: 'usage', usage: mapUsage(event.message.usage) }
+        yield { type: 'usage', usage: mapUsage(event.message.usage, credits) }
         yield {
           type: 'finish',
           reason: mapStopReason(event.message, contextWindow),
@@ -216,7 +222,7 @@ export async function* toStreamChunks(
       case 'error':
         // In-stream error delivery (pi-ai's style) → error finish chunk
         // (the harness's other sanctioned error path besides throwing).
-        yield { type: 'usage', usage: mapUsage(event.error.usage) }
+        yield { type: 'usage', usage: mapUsage(event.error.usage, credits) }
         yield {
           type: 'finish',
           reason: mapStopReason(

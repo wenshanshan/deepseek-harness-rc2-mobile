@@ -86,6 +86,8 @@ export interface TurnTokenUsage {
   readonly cacheWriteTokens?: number
   /** Output subset, present only when every attempt reported it. */
   readonly reasoningTokens?: number
+  /** Sum of provider-forwarded credit costs; present only when every attempt reported one. */
+  readonly creditsUsed?: number
   /** Present only when every billed attempt has provider/model attribution. */
   readonly routes?: readonly TurnTokenUsageRoute[]
 }
@@ -114,6 +116,7 @@ export interface TurnProcessChatData {
   readonly messageCount: number
   readonly toolCallCount: number
   readonly subagentCount: number
+  readonly creditsUsed?: number
 }
 
 /**

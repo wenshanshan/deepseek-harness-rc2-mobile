@@ -186,6 +186,13 @@ export interface TokenUsage {
   cacheReadTokens?: number
   cacheWriteTokens?: number
   reasoningTokens?: number
+  /**
+   * Provider-reported credit/point cost for this call, when the endpoint
+   * forwards one in its usage payload (gateway `credits_used` / `credit`).
+   * Fractional sums are rounded to two decimals; adapters omit the field
+   * entirely when the provider reported no cost.
+   */
+  creditsUsed?: number
 }
 
 /**

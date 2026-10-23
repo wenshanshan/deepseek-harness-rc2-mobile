@@ -21,7 +21,8 @@ function samePresentation(
     && left.turnClosed === right.turnClosed
     && left.hasExternalProcess === right.hasExternalProcess
     && left.hasInterleavedInput === right.hasInterleavedInput
-    && left.compactAnswer === right.compactAnswer)
+    && left.compactAnswer === right.compactAnswer
+    && left.creditsUsed === right.creditsUsed)
 }
 
 function derivePresentation(
@@ -65,6 +66,10 @@ function derivePresentation(
       hasExternalProcess = true
     }
   }
+  // Settled Turns read the turn-tail Definition's exact aggregate; open Turns
+  // read it too — it stays undefined until the closing attempt settles, so the
+  // running display keeps its incrementally accumulated spec value.
+  const settledCredits = location.turn.data.get('turn-tail')?.tokenUsage?.creditsUsed
   return {
     turn,
     spec,
@@ -73,6 +78,7 @@ function derivePresentation(
     hasExternalProcess,
     hasInterleavedInput,
     compactAnswer,
+    ...settledCredits === undefined ? {} : { creditsUsed: settledCredits },
   }
 }
 

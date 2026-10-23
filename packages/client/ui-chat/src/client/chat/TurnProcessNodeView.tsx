@@ -31,6 +31,7 @@ export const TurnProcessNodeView = memo(function TurnProcessNodeView({
   const announcement = stopped ? t('message.stopped')
     : reason === 'error' ? t('message.turnProcess.failed')
       : t('message.turnProcess.worked')
+  const credits = turnProcess.spec.creditsUsed
   return (
     <>
       <span className={a11yCss.visuallyHidden} role="status" aria-live="polite" aria-atomic="true">{announcement}</span>
@@ -42,6 +43,7 @@ export const TurnProcessNodeView = memo(function TurnProcessNodeView({
         data-turn-process-messages={node.data.messageCount}
         data-turn-process-tool-calls={node.data.toolCallCount}
         data-turn-process-subagents={node.data.subagentCount}
+        data-turn-process-credits={credits}
         disabled={!canCollapse}
         aria-expanded={turnProcess.hasContent ? open : undefined}
         onClick={(event) => {
@@ -54,6 +56,9 @@ export const TurnProcessNodeView = memo(function TurnProcessNodeView({
           {duration?.map((part, index) => (
             <span key={index} className={part.numeric ? css.durationNumber : undefined}>{part.text}</span>
           ))}
+          {credits !== undefined && (
+            <span className={css.durationNumber}>{t('message.turnProcess.credits', { credits })}</span>
+          )}
         </span>
         {canCollapse && <IconChevronDownOutlineRegular className={css.chevron} />}
       </button>

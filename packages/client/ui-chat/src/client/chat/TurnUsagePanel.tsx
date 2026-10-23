@@ -66,6 +66,12 @@ export function TurnUsagePanel({ usage, t }: TurnUsagePanelProps) {
           </div>
           <div className={dialogCss.titleRule} aria-hidden />
           <dl className={dialogCss.details} data-turn-usage-details>
+            {usage.creditsUsed !== undefined && (
+              <>
+                <dt>{t('message.turnUsage.credits')}</dt>
+                <dd>{usage.creditsUsed}</dd>
+              </>
+            )}
             {routes !== '' && (
               <>
                 <dt>{t('message.turnUsage.model')}</dt>

@@ -998,6 +998,16 @@ describe('mapStopReason / mapUsage', () => {
     })
     expect(mapUsage(usage(10, 5))).toEqual({ inputTokens: 10, outputTokens: 5, totalTokens: 15 })
   })
+
+  it('maps forwarded credits only when captured', () => {
+    expect(mapUsage(usage(10, 5), 1.25)).toEqual({
+      inputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
+      creditsUsed: 1.25,
+    })
+    expect('creditsUsed' in mapUsage(usage(10, 5))).toBe(false)
+  })
 })
 
 describe('toStreamChunks edge branches', () => {

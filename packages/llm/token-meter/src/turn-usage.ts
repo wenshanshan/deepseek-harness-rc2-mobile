@@ -22,6 +22,8 @@ export interface TurnTokenUsage {
   readonly cacheWriteTokens?: number
   /** Output subset, present only when every attempt reported it. */
   readonly reasoningTokens?: number
+  /** Sum of provider-forwarded credit costs; present only when every attempt reported one. */
+  readonly creditsUsed?: number
   /** Present only when every billed attempt has provider/model attribution. */
   readonly routes?: readonly TurnTokenUsageRoute[]
 }
@@ -33,6 +35,7 @@ interface NormalizedAttempt {
   readonly cacheReadTokens?: number
   readonly cacheWriteTokens?: number
   readonly reasoningTokens?: number
+  readonly creditsUsed?: number
   readonly route?: TurnTokenUsageRoute
 }
 
@@ -80,7 +83,7 @@ function streamUsage(stream: SessionEvent<'assistant/message'>['data']['stream']
 
 function normalizeUsage(usage: TokenUsage, route?: TurnTokenUsageRoute): NormalizedAttempt | undefined {
   const {
-    inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, reasoningTokens, totalTokens,
+    inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, reasoningTokens, totalTokens, creditsUsed,
   } = usage
   if (!isCount(inputTokens) || !isCount(outputTokens)) return undefined
   if (cacheReadTokens !== undefined && !isCount(cacheReadTokens)) return undefined
@@ -88,6 +91,7 @@ function normalizeUsage(usage: TokenUsage, route?: TurnTokenUsageRoute): Normali
   if (reasoningTokens !== undefined && (!isCount(reasoningTokens) || reasoningTokens > outputTokens)) {
     return undefined
   }
+  if (creditsUsed !== undefined && (!Number.isFinite(creditsUsed) || creditsUsed < 0)) return undefined
 
   const knownPrompt = safeSum([
     inputTokens,
@@ -119,6 +123,7 @@ function normalizeUsage(usage: TokenUsage, route?: TurnTokenUsageRoute): Normali
     ...cacheReadTokens === undefined ? {} : { cacheReadTokens },
     ...cacheWriteTokens === undefined ? {} : { cacheWriteTokens },
     ...reasoningTokens === undefined ? {} : { reasoningTokens },
+    ...creditsUsed === undefined ? {} : { creditsUsed },
     ...route === undefined ? {} : { route },
   }
 }
@@ -133,11 +138,17 @@ function aggregateAttempts(attempts: readonly NormalizedAttempt[]): TurnTokenUsa
   const cacheRead = attempts.map(attempt => attempt.cacheReadTokens)
   const cacheWrite = attempts.map(attempt => attempt.cacheWriteTokens)
   const reasoning = attempts.map(attempt => attempt.reasoningTokens)
+  const credits = attempts.map(attempt => attempt.creditsUsed)
   const cacheReadTokens = cacheRead.every(isCount) ? safeSum(cacheRead) : undefined
   const cacheWriteTokens = cacheWrite.every(isCount) ? safeSum(cacheWrite) : undefined
   const reasoningTokens = reasoning.every(isCount) ? safeSum(reasoning) : undefined
   // A present cache bucket is bounded by exact prompt, and reasoning is bounded
   // by output. Safe required aggregates therefore imply safe optional sums.
+  // Credits are fractional, so the sum rounds to the display precision and any
+  // non-finite overflow reports the bucket as unavailable.
+  const creditsUsed = credits.every(value => value !== undefined)
+    ? credits.reduce((total, value) => total + (value ?? 0), 0)
+    : undefined
 
   let routes: readonly TurnTokenUsageRoute[] | undefined
   const attributed = attempts.map(attempt => attempt.route)
@@ -154,6 +165,7 @@ function aggregateAttempts(attempts: readonly NormalizedAttempt[]): TurnTokenUsa
     ...cacheReadTokens === undefined ? {} : { cacheReadTokens },
     ...cacheWriteTokens === undefined ? {} : { cacheWriteTokens },
     ...reasoningTokens === undefined ? {} : { reasoningTokens },
+    ...creditsUsed === undefined ? {} : { creditsUsed: Math.round(creditsUsed * 100) / 100 },
     ...routes === undefined ? {} : { routes },
   }
 }

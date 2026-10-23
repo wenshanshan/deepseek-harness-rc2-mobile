@@ -15,6 +15,12 @@ export interface TurnProcessSpec {
   readonly toolCallCount: number
   /** Tool calls whose configured name identifies a subagent delegation. */
   readonly subagentCount: number
+  /**
+   * Running-sum credit cost from settled attempts so far. Settled Turns
+   * replace it with the turn-tail Definition's exact aggregate; absent when no
+   * attempt reported a cost.
+   */
+  readonly creditsUsed?: number
 }
 
 /**
@@ -33,6 +39,7 @@ export function sameTurnProcessSpec(left: TurnProcessSpec, right: TurnProcessSpe
     && left.messageCount === right.messageCount
     && left.toolCallCount === right.toolCallCount
     && left.subagentCount === right.subagentCount
+    && left.creditsUsed === right.creditsUsed
 }
 
 /**

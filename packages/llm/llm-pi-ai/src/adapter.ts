@@ -123,6 +123,30 @@ export interface PiAiAuthInjection {
   authContext: AuthContext
 }
 
+/**
+ * Credit/point cost keys a gateway may forward in its usage payload for this
+ * call's billed cost. The gateway writes the OpenAI-compatible extension
+ * `credits_used` and, for clients that read it, `credit`; WorkBuddy-shaped
+ * consumers also send `credit`. Order matters only for co-occurrence, which no
+ * real producer has; first match wins.
+ */
+const USAGE_CREDITS_KEYS = ['credits_used', 'credit', 'credits'] as const
+
+/**
+ * Extract one usage payload's forwarded credit cost.
+ * @param usage - the provider usage object from a raw stream event.
+ * @returns the non-negative cost, or undefined when the payload reports none.
+ */
+export function usageCredits(usage: unknown): number | undefined {
+  if (typeof usage !== 'object' || usage === null) return undefined
+  const record = usage as Record<string, unknown>
+  for (const key of USAGE_CREDITS_KEYS) {
+    const value = record[key]
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return value
+  }
+  return undefined
+}
+
 /** Copy profile stream knobs into pi-ai's common option vocabulary. */
 function profileOptions(
   profile: ResolvedPiAiProviderProfile,
@@ -402,6 +426,16 @@ export class PiAiAdapter extends LlmAdapter {
       const onReplayDegrade = (reason: string): void => {
         this.config.onReplayDegrade?.({ provider: options.provider, model: options.model, reason })
       }
+      // The gateway may forward this call's billed cost on its final usage
+      // frame; pi-ai drops unknown usage fields, so capture it raw before
+      // normalization. Frames are read-only and arrive in stream order, and
+      // only this generator's own request feeds the callback.
+      let credits: number | undefined
+      const onProviderStreamEvent = (data: unknown): void => {
+        const usage = (data as { usage?: unknown } | null | undefined)?.usage
+        const captured = usageCredits(usage)
+        if (captured !== undefined) credits = captured
+      }
       const context = attachments === undefined
         ? toPiContext(request, undefined, onReplayDegrade)
         : await toPiContext({ ...request, signal: watchdog.signal }, {
@@ -422,8 +456,9 @@ export class PiAiAdapter extends LlmAdapter {
         // Profile headers are deployment-owned; attribution names are
         // Harness-owned and therefore win collisions.
         headers: requestHeaders(profile.headers),
+        onProviderStreamEvent,
       })
-      const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]()
+      const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id, credits)[Symbol.asyncIterator]()
       let exhausted = false
       try {
         while (true) {
