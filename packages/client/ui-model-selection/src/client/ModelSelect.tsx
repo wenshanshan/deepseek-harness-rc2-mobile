@@ -56,6 +56,21 @@ interface EffortChoice {
 const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
 
 /**
+ * Whether the primary input is touch — no hover capability or a coarse pointer.
+ * An auto-focused search field raises the on-screen keyboard on such devices,
+ * so the drilled model pane skips its programmatic focus there and keeps the
+ * desktop keyboard-navigation behavior (hover-capable fine pointer) unchanged.
+ * @returns true on touch-primary devices; false on desktop, SSR, and when
+ *   matchMedia is unavailable (jsdom/older engines keep the focus behavior).
+ */
+function isTouchPrimaryInput(): boolean {
+  if (typeof window === 'undefined') return false
+  const mq = window.matchMedia?.bind(window)
+  if (mq === undefined) return false
+  return !mq('(hover: hover)').matches || !mq('(pointer: fine)').matches
+}
+
+/**
  * Render the composer model seat.
  * @param props - owner share (locked) + injected face (shared directory
  * store/verbs) + the standard locale seat.
@@ -185,7 +200,7 @@ export function ModelSelect(
     if (!open || intent === null) return
     if (intent === 'drill') {
       if (pane === 'model' && showSearch) {
-        searchRef.current?.focus()
+        if (!isTouchPrimaryInput()) searchRef.current?.focus()
         return
       }
       // The checked row is the value in use; a pane without one opens on its

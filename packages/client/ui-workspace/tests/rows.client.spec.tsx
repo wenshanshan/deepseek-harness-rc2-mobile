@@ -1076,10 +1076,54 @@ describe('workspace browser rows', () => {
     expect(onOpen).toHaveBeenCalledWith(node.id)
   })
 
-  it('opens the session on the first touch pointerdown (no second tap needed)', () => {
-    // On a touch screen a tap on a non-button row may only focus/highlight it,
-    // with the real click on a second tap; the row opens on the first touch
-    // pointerdown instead, exactly like a native list item.
+  it('toggles the workspace group on a still touch tap, not on a scroll', () => {
+    const group: GroupNode = {
+      key: 'project', workspaceId: wid('project'), cwd: '/projects/project', createdAt: 0, label: 'Project',
+      sessionCount: 1, expanded: false, containsCurrent: false, sessions: [],
+    }
+    const onToggle = vi.fn()
+    render(<ProjectRowItem group={group} onToggle={onToggle} onCreate={vi.fn()} t={t} />)
+    const row = screen.getByRole('treeitem')
+    // A still tap opens, but never on pointerdown alone.
+    fireEvent.pointerDown(row, { button: 0, pointerId: 1, pointerType: 'touch', clientX: 10, clientY: 10 })
+    expect(onToggle).not.toHaveBeenCalled()
+    fireEvent.pointerUp(row, { button: 0, pointerId: 1, pointerType: 'touch', clientX: 10, clientY: 10 })
+    expect(onToggle).toHaveBeenCalledTimes(1)
+    // The follow-up click must not double-toggle.
+    fireEvent.click(row)
+    expect(onToggle).toHaveBeenCalledTimes(1)
+    // A vertical scroll abandons the tap.
+    fireEvent.pointerDown(row, { button: 0, pointerId: 2, pointerType: 'touch', clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(row, { button: 0, pointerId: 2, pointerType: 'touch', clientX: 12, clientY: 60 })
+    fireEvent.pointerUp(row, { button: 0, pointerId: 2, pointerType: 'touch', clientX: 12, clientY: 60 })
+    expect(onToggle).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens a search-result row on a still touch tap, not on a scroll', () => {
+    const result: SearchResultNode = {
+      id: sid('result'), title: 'Touch result', workspace: 'Project',
+      running: false, runningSubagentCount: 0, completed: false, archived: false,
+    }
+    const onOpen = vi.fn()
+    render(<SearchResultItem result={result} currentId={undefined} onOpen={onOpen} onUnarchive={vi.fn()} t={t} />)
+    const row = screen.getByRole('treeitem')
+    fireEvent.pointerDown(row, { button: 0, pointerId: 1, pointerType: 'touch', clientX: 10, clientY: 10 })
+    expect(onOpen).not.toHaveBeenCalled()
+    fireEvent.pointerUp(row, { button: 0, pointerId: 1, pointerType: 'touch', clientX: 10, clientY: 10 })
+    expect(onOpen).toHaveBeenCalledWith(result.id)
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    // A vertical scroll abandons the tap.
+    fireEvent.pointerDown(row, { button: 0, pointerId: 2, pointerType: 'touch', clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(row, { button: 0, pointerId: 2, pointerType: 'touch', clientX: 12, clientY: 60 })
+    fireEvent.pointerUp(row, { button: 0, pointerId: 2, pointerType: 'touch', clientX: 12, clientY: 60 })
+    expect(onOpen).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens the session on a still touch tap (pointerdown then up, no second tap needed)', () => {
+    // A touch tap on a non-button row may not produce a click until a second
+    // tap; the row opens when a still touch lifts (pointerup), exactly like a
+    // native list item. Pointerdown alone must not open, or scrolling the list
+    // would open every row the finger passes over.
     const node: SessionNode = {
       id: sid('s1'), title: 'Touch open', blank: false, running: false,
       runningSubagentCount: 0, completed: false, updatedAt: 0, pinned: false, archived: false,
@@ -1089,9 +1133,29 @@ describe('workspace browser rows', () => {
     render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={onOpen} drag={drag} t={t} />)
     const row = screen.getByRole('treeitem')
     fireEvent.pointerDown(row, { button: 0, pointerId: 1, pointerType: 'touch', clientX: 10, clientY: 10 })
+    expect(onOpen).not.toHaveBeenCalled()
+    fireEvent.pointerUp(row, { button: 0, pointerId: 1, pointerType: 'touch', clientX: 10, clientY: 10 })
     expect(onOpen).toHaveBeenCalledWith(node.id)
-    // The follow-up click must not double-open: the row opening is idempotent.
+    // The follow-up click must not double-open: the tap consumed it.
+    fireEvent.click(row)
     expect(onOpen).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not open the session when a touch drag scrolled the list', () => {
+    // A vertical drag is list scrolling, not a tap: the finger moved past the
+    // tap threshold, so the pointerup must not open the session.
+    const node: SessionNode = {
+      id: sid('s1'), title: 'Scroll past', blank: false, running: false,
+      runningSubagentCount: 0, completed: false, updatedAt: 0, pinned: false, archived: false,
+    }
+    const drag = dragProps()
+    const onOpen = vi.fn()
+    render(<SessionNodeItem node={node} currentId={undefined} now={0} onOpen={onOpen} drag={drag} t={t} />)
+    const row = screen.getByRole('treeitem')
+    fireEvent.pointerDown(row, { button: 0, pointerId: 1, pointerType: 'touch', clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(row, { button: 0, pointerId: 1, pointerType: 'touch', clientX: 12, clientY: 60 })
+    fireEvent.pointerUp(row, { button: 0, pointerId: 1, pointerType: 'touch', clientX: 12, clientY: 60 })
+    expect(onOpen).not.toHaveBeenCalled()
   })
 
   it('keeps the click path for mouse and trackpad (no touch pointerdown open)', () => {

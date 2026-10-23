@@ -242,6 +242,85 @@
   white-space: nowrap;
 }
 
+/* Below 720px the 188px rail leaves an options column too narrow for the
+   sections' fixed-width controls (the widest row needs about 460px there), so
+   the rail becomes a wrapped tab strip above the content and the panel fills
+   the viewport. The strip wraps rather than scrolling or ellipsising section
+   names, so every section stays one tap away and none is hidden off-screen; a
+   longer registered list grows the strip and the content area absorbs it. */
+@media (max-width: 720px) {
+  .overlay {
+    align-items: flex-start;
+  }
+
+  /* Full viewport below the window chrome strip, which the mask also leaves
+     uncovered. No backdrop click target remains at this size, so the close
+     control and Escape are the close paths. */
+  .panel {
+    width: 100%;
+    max-width: none;
+    height: calc(100vh - var(--dsh-frame-chrome-top, 0px));
+    height: calc(100dvh - var(--dsh-frame-chrome-top, 0px));
+    margin-top: var(--dsh-frame-chrome-top, 0px);
+    border-radius: 0;
+    flex-direction: column;
+  }
+
+  .nav {
+    flex: 0 1 auto;
+    min-height: 0;
+    width: auto;
+    gap: 4px;
+    padding: 0 16px;
+  }
+
+  .navTitle {
+    display: flex;
+    align-items: center;
+    height: 48px;
+    /* Room kept clear for the header actions and close control parked at the
+       top-right corner: the widest chrome row (the English open-document action
+       plus close) is 190px, and the dialog title is two words in both locales.
+       A title longer than this cap cannot run under the chrome. */
+    padding: 0 min(196px, 60vw) 0 0;
+  }
+
+  /* The strip wraps before it shrinks, so every tab keeps its label; the
+     scroll fallback below only engages when even the wrapped strip cannot fit,
+     which needs far more registered sections than the shell ships. */
+  .navList {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 8px;
+  }
+
+  /* A tab wider than the strip truncates inside its own box instead of pushing
+     the strip past the panel edge. */
+  .navCell {
+    flex: 0 1 auto;
+    max-width: 100%;
+    padding: 8px 12px 8px 10px;
+  }
+
+  /* Taken out of the content column so the options area owns the full panel
+     height; the containing block is the panel, whose top-right corner is the
+     title row the nav reserves space in. */
+  .header {
+    position: absolute;
+    top: 0;
+    right: 0;
+    align-items: center;
+    height: 48px;
+    padding: 0 12px 0 0;
+  }
+
+  .options {
+    padding: 0 16px 16px;
+  }
+}
+
 /* No app-region rule here: the overlay portals beside #root (SettingsRoot), so
    ui-web base.css's `body > :not(#root)` subtraction covers it wherever it
    overlaps a chrome row's drag — including above every column, which an in-root

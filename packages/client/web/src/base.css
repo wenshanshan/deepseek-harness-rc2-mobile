@@ -8,6 +8,17 @@ body,
   margin: 0;
 }
 
+/* Native-like mobile framing: no tap highlight flash, no page-wide rubber-band
+   overscroll (surfaces scroll inside their own containers), and no automatic
+   text inflation of sub-16px type. Scroll containment is owned by #root and the
+   AppFrame (both height 100% with overflow hidden), not the viewport itself. */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
 body {
   font-family: var(
     --dsw-font-family,

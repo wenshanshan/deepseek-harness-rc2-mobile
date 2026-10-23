@@ -209,6 +209,15 @@
   line-height: normal;
 }
 
+/* Touch-primary devices: a sub-16px text input triggers iOS Safari's legibility
+   zoom when focused, widening the page. Raise only the search field so a manual
+   tap never rescales the viewport; the menu rows keep their 13px detail size. */
+@media (pointer: coarse) {
+  .searchRow .search input {
+    font-size: 16px;
+  }
+}
+
 .searchRow .search input::placeholder {
   color: var(--dsw-alias-label-caption);
 }

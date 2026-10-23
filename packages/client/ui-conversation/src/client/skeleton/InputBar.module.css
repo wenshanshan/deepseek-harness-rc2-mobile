@@ -112,6 +112,18 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+/* iOS Safari auto-zooms a focused editable surface whose font is smaller than
+   16px (its "legibility zoom"), widening the whole page. Touch-primary devices
+   floor the draft and placeholder at 16px so focusing never rescales the
+   viewport; hover-primary (fine pointer) devices keep the Settings font size,
+   and a user-chosen size above 16px still wins. Only .input and .placeholder
+   inherit here — every other child in the card declares its own size. */
+@media (pointer: coarse) {
+  .card {
+    font-size: max(var(--dsh-content-font-size, 14px), 16px);
+  }
+}
+
 /* No-workspace trigger state: an inset 1px dashed outline marks the card as a
    workspace picker rather than a live composer. Keeping the complete stroke
    inside the rounded box prevents clipped corner pixels from reading heavier. */

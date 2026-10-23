@@ -278,6 +278,58 @@ function useFakeDragGuard(): {
   }
 }
 
+/** Touch movement below this many px is a tap, not a scroll. */
+const TOUCH_TAP_THRESHOLD_PX = 10
+
+/**
+ * Touch tap-vs-scroll discrimination for a row that opens or toggles on the
+ * first touch. A finger landing on the row records its origin; moving past
+ * {@link TOUCH_TAP_THRESHOLD_PX} (a scroll, or a drag attempt on a device where
+ * dragging is disabled) abandons the gesture, and a lift within the threshold
+ * fires the tap. The loud `click` the browser still emits after a touch tap is
+ * swallowed by {@link consumeClick}, so one tap opens the row exactly once.
+ * Mouse and trackpad skip these handlers and keep the plain click path.
+ * @param onTap - row action fired once per still touch tap.
+ * @returns the touch tap wiring plus a click-consuming probe.
+ */
+function useTouchTap(onTap: () => void): {
+  onPointerDown: (e: React.PointerEvent) => void
+  onPointerMove: (e: React.PointerEvent) => void
+  onPointerUp: () => void
+  onPointerCancel: () => void
+  /** True when a touch tap already handled the click that follows it. */
+  consumeClick: () => boolean
+} {
+  const origin = useRef<{ x: number; y: number } | null>(null)
+  const handled = useRef(false)
+  return {
+    onPointerDown: (e: React.PointerEvent): void => {
+      origin.current = { x: e.clientX, y: e.clientY }
+    },
+    onPointerMove: (e: React.PointerEvent): void => {
+      const start = origin.current
+      if (start === null) return
+      if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > TOUCH_TAP_THRESHOLD_PX) {
+        origin.current = null
+      }
+    },
+    onPointerUp: (): void => {
+      if (origin.current === null) return
+      origin.current = null
+      handled.current = true
+      onTap()
+    },
+    onPointerCancel: (): void => {
+      origin.current = null
+    },
+    consumeClick: (): boolean => {
+      if (!handled.current) return false
+      handled.current = false
+      return true
+    },
+  }
+}
+
 /**
  * Project (workspace) header row: folder + title;
  * hover reveals the chevron and create button, and dwelling on a real
@@ -312,6 +364,7 @@ export function ProjectRowItem({ group, containsCurrentDescendant = false, onTog
   const active = containsCurrentDescendant || (group.expanded && group.containsCurrent)
   const [menuOpen, setMenuOpen] = useState(false)
   const dragGuard = useFakeDragGuard()
+  const touchTap = useTouchTap(onToggle)
   const workspaceMenuItems = [
     { id: 'rename', label: t('rename'), icon: <IconEditOutlineRegular /> },
     { id: 'delete', label: t('delete.workspace'), icon: <IconTrashOutlineRegular />, danger: true },
@@ -322,16 +375,28 @@ export function ProjectRowItem({ group, containsCurrentDescendant = false, onTog
       data-row-key={`workspace:${group.key}`}
       role="treeitem"
       aria-expanded={row.expanded}
-      onClick={onToggle}
+      onClick={() => {
+        if (!touchTap.consumeClick()) onToggle()
+      }}
       onPointerDown={(e) => {
-        // Same touch one-tap rule as session rows: opening on the first touch
-        // pointerdown so the first tap toggles the group.
-        if (e.pointerType === 'touch') onToggle()
+        // Touch tap-vs-scroll: record the touch origin, move the drag guard on
+        // any other pointer. The row action fires on a still pointerup, never
+        // on pointerdown, so scrolling the list cannot open a group mid-gesture.
+        if (e.pointerType === 'touch') touchTap.onPointerDown(e)
         else dragGuard.onPointerDown(e)
       }}
-      onPointerMove={dragGuard.onPointerMove}
-      onPointerUp={dragGuard.onPointerUp}
-      onPointerCancel={dragGuard.onPointerUp}
+      onPointerMove={(e) => {
+        if (e.pointerType === 'touch') touchTap.onPointerMove(e)
+        else dragGuard.onPointerMove(e)
+      }}
+      onPointerUp={(e) => {
+        if (e.pointerType === 'touch') touchTap.onPointerUp()
+        else dragGuard.onPointerUp()
+      }}
+      onPointerCancel={(e) => {
+        if (e.pointerType === 'touch') touchTap.onPointerCancel()
+        else dragGuard.onPointerUp()
+      }}
       draggable={drag !== undefined && dragGuard.supported}
       onDragStart={drag === undefined || !dragGuard.supported
         ? undefined
@@ -566,18 +631,27 @@ export function SearchResultItem({ result, currentId, onOpen, onUnarchive, t }: 
   const selected = result.id === currentId
   const statuses = sessionStatuses(result, t)
   const primaryStatus = statuses[0]
+  const touchTap = useTouchTap(() => { onOpen(result.id) })
   return (
     <div
       className={clsx(css.searchResultRow, selected && css.selected, result.archived && css.archived)}
       role="treeitem"
       aria-selected={selected}
       aria-description={result.archived ? t('toast.archivedNotOpenable') : undefined}
-      onClick={() => { onOpen(result.id) }}
+      onClick={() => {
+        if (!touchTap.consumeClick()) onOpen(result.id)
+      }}
       onPointerDown={(e) => {
-        // Touch one-tap: a tap on a non-button row may not produce a click
-        // until a second tap; opening on the first touch pointerdown matches
-        // native list behavior.
-        if (e.pointerType === 'touch') onOpen(result.id)
+        if (e.pointerType === 'touch') touchTap.onPointerDown(e)
+      }}
+      onPointerMove={(e) => {
+        if (e.pointerType === 'touch') touchTap.onPointerMove(e)
+      }}
+      onPointerUp={(e) => {
+        if (e.pointerType === 'touch') touchTap.onPointerUp()
+      }}
+      onPointerCancel={(e) => {
+        if (e.pointerType === 'touch') touchTap.onPointerCancel()
       }}
     >
       <span className={css.searchResultHeading}>
@@ -659,6 +733,7 @@ export function SessionNodeItem({
   const primaryStatus = statuses[0]
   const showStatus = primaryStatus.state !== 'idle'
   const dragGuard = useFakeDragGuard()
+  const touchTap = useTouchTap(() => { onOpen(node.id) })
   // Archived rows hold their in-place grayed slot, so manual reorder cannot
   // move them. Pinned rows drag within the pinned block: the browser gates
   // their drop targets to fellow pinned rows.
@@ -687,20 +762,30 @@ export function SessionNodeItem({
       role="treeitem"
       aria-selected={selected}
       aria-description={row.archived ? t('toast.archivedNotOpenable') : undefined}
-      onClick={() => { onOpen(node.id) }}
+      onClick={() => {
+        if (!touchTap.consumeClick()) onOpen(node.id)
+      }}
       onPointerDown={(e) => {
-        // Touch screens have no click-latching: a tap on a non-button row may
-        // only focus/highlight it, and the real click arrives on a second tap.
-        // Opening on the first touch pointerdown makes the row open on the
-        // first tap, exactly like a native list item. Mouse and trackpad keep
-        // the click path (pointerdown would also open while the user is about
-        // to drag, and drag is still enabled there).
-        if (e.pointerType === 'touch') onOpen(node.id)
+        // Touch tap-vs-scroll: a touch records its origin, the drag guard moves
+        // on any other pointer. The row opens on a still pointerup, never on
+        // pointerdown, so scrolling the list cannot open a session mid-gesture;
+        // a still tap still opens on the first touch. Mouse and trackpad keep
+        // the plain click path (pointerdown only arms their drag guard).
+        if (e.pointerType === 'touch') touchTap.onPointerDown(e)
         else dragGuard.onPointerDown(e)
       }}
-      onPointerMove={dragGuard.onPointerMove}
-      onPointerUp={dragGuard.onPointerUp}
-      onPointerCancel={dragGuard.onPointerUp}
+      onPointerMove={(e) => {
+        if (e.pointerType === 'touch') touchTap.onPointerMove(e)
+        else dragGuard.onPointerMove(e)
+      }}
+      onPointerUp={(e) => {
+        if (e.pointerType === 'touch') touchTap.onPointerUp()
+        else dragGuard.onPointerUp()
+      }}
+      onPointerCancel={(e) => {
+        if (e.pointerType === 'touch') touchTap.onPointerCancel()
+        else dragGuard.onPointerUp()
+      }}
       onPointerEnter={marquee.enter}
       onPointerLeave={marquee.leave}
       draggable={draggable}

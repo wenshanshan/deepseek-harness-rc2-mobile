@@ -22,6 +22,7 @@ import type {
 import { CENTER_MIN, clampWidth, computeColumns, RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MAX_RATIO, RIGHTBAR_MIN, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_COLLAPSED, SIDEBAR_DEFAULT, SIDEBAR_MAX } from './columns.ts'
 import { DocumentTitle } from './DocumentTitle.tsx'
 import type { createLayoutStore } from './stores.ts'
+import { useSwipeRight } from './use-swipe-right.ts'
 import css from './AppFrame.module.css'
 
 /** Full composed props: runtime share + child-slot render share + store share. */
@@ -181,6 +182,13 @@ export function AppFrame({
   // drawer) capped by the sidebar drag ceiling so the wide content stays
   // readable. 0 on wide frames where the sidebar owns a grid track instead.
   const drawerWidth = narrow ? Math.min(Math.round(viewport * 0.85), SIDEBAR_MAX) : 0
+  // Narrow drawer open gesture: a whole-surface right-swipe reopens the drawer,
+  // since mobile browsers reserve a left-edge swipe for the OS "back" gesture.
+  // It is inert when the drawer is open (the panel/scrim own the surface) or on
+  // a wide frame (the sidebar owns a grid track and the toggle/rail is the
+  // affordance). A leftward drag or a vertical scroll never triggers it, so the
+  // drawer's own list scrolling stays intact.
+  useSwipeRight(() => { actions.toggleSidebar() }, narrow && sidebarCollapsed)
   const colsRef = useRef(cols)
   colsRef.current = cols
   const rightbarWidth = useRef(normal.rightbar)
