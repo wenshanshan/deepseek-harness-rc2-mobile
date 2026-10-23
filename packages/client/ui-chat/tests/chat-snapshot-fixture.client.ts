@@ -312,6 +312,8 @@ export function chatSnapshotFixture(input: {
   readonly turnEndReasons?: ReadonlyMap<number, TurnEndReason>
   /** Per-turn usage buckets; production derives these from session events. */
   readonly turnUsages?: ReadonlyMap<number, TurnTokenUsage> | undefined
+  /** Per-turn running credit sums carried by the Turn-process control Node. */
+  readonly turnCredits?: ReadonlyMap<number, number> | undefined
 } = {}, previous?: ChatSnapshot): ChatSnapshot {
   const legacy: LegacyConversationSlice = {
     nodes: input.nodes ?? EMPTY,
@@ -444,6 +446,7 @@ export function chatSnapshotFixture(input: {
     const processStart = inTurn.find(candidate => !isAtOrOutside(candidate, 'turn'))
       ?? controlAnchor
     const inlineReasoning = answer?.blocks.some(block => block.kind === 'reasoning' && block.text.trim() !== '') === true
+    const creditsUsed = input.turnCredits?.get(turnNumber)
     const candidate: TurnProcessSpec = {
       turn: turnNumber,
       controlAnchorSeq,
@@ -463,6 +466,7 @@ export function chatSnapshotFixture(input: {
         const name = toolCallName(call)
         return name !== null && isSubagentDelegationTool(name)
       }).length,
+      ...creditsUsed === undefined ? {} : { creditsUsed },
     }
     const previousSpec = dataStore.get('turn-process')
     const spec = previousSpec !== undefined && sameTurnProcessSpec(previousSpec, candidate)

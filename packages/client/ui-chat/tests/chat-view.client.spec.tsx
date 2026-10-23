@@ -3521,6 +3521,21 @@ describe('ChatView', () => {
     expect(runningContent(view.container)?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···$/)
   }))
 
+  it('appends the running Turn credit sum from its process control to the running label', withClock(2_000, () => {
+    const h = makeHarness({
+      chat: chatSnapshotFixture({
+        nodes: [userInTurn(5, 'current question', 2), assistant(6, 'working', 2, 1)],
+        turnTimings: new Map([[2, { startTime: 0 }]]),
+        turnCredits: new Map([[2, 1.75]]),
+      }),
+    }, { running: true })
+    const view = render(<h.ChatView {...h.props} />)
+    // The Turn's control Node is the credit owner, yet it renders nothing while open.
+    expect(turnProcessControl(view.container)).toBeNull()
+    expect(runningContent(view.container)?.textContent)
+      .toMatch(/^深度求索中，用时 \d+秒 ···，已消耗 1\.75 积分$/)
+  }))
+
   it('keeps the Tool renderer mounted when a running call settles into log order', () => {
     const mounted = vi.fn()
     const unmounted = vi.fn()

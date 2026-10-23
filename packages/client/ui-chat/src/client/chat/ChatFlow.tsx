@@ -25,8 +25,18 @@ export const ChatFlow = memo(function ChatFlow({
       : undefined
   })
   // The running Turn's turn-process Node carries the running credit sum (the
-  // exact aggregate once published); absence renders no credit text.
-  const runningCredits = useChatNode(latestTurnAnchor ?? '', (node) => {
+  // exact aggregate once published); absence renders no credit text. The
+  // navigation anchor is a transcript Node, so resolve the Turn's control Node
+  // by kind.
+  const runningProcessKey = useChat((snapshot) => {
+    const anchor = snapshot.navigation.items().at(-1)?.anchorKey
+    const location = anchor === undefined ? undefined : snapshot.nodes.get(anchor)?.location
+    if (location === undefined || (location.kind !== 'turn' && location.kind !== 'step')) return undefined
+    if (location.turn.status !== 'open') return undefined
+    return snapshot.locations.getTurn(location.turn.turn)
+      .find(key => snapshot.nodes.get(key)?.kind === 'turn-process')
+  })
+  const runningCredits = useChatNode(runningProcessKey ?? '', (node) => {
     if (node?.kind !== 'turn-process') return undefined
     return (node.data as { creditsUsed?: number }).creditsUsed
   })
