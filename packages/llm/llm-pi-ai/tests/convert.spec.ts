@@ -1020,6 +1020,24 @@ describe('toStreamChunks edge branches', () => {
     )))
     expect(chunks[1]).toEqual({ type: 'tool-call-delta', index: 0, id: 'x', argumentsDelta: '{}' })
   })
+
+  it('reads credits at the terminal event, after the capture callback assigned them', async () => {
+    const captured: { credits?: number } = {}
+    const chunks = await collect(toStreamChunks(feed(
+      { type: 'start', partial: assistant() },
+      { type: 'done', reason: 'stop', message: assistant({ usage: usage(10, 5) }) },
+    ), undefined, undefined, undefined, () => captured.credits))
+    expect(chunks.filter(chunk => chunk.type === 'usage')).toEqual([
+      { type: 'usage', usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 } },
+    ])
+    captured.credits = 1.25
+    const later = await collect(toStreamChunks(feed(
+      { type: 'done', reason: 'stop', message: assistant({ usage: usage(10, 5) }) },
+    ), undefined, undefined, undefined, () => captured.credits))
+    expect(later.filter(chunk => chunk.type === 'usage')).toEqual([
+      { type: 'usage', usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15, creditsUsed: 1.25 } },
+    ])
+  })
 })
 
 describe('toStreamChunks defensive branches', () => {

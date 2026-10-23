@@ -458,7 +458,7 @@ export class PiAiAdapter extends LlmAdapter {
         headers: requestHeaders(profile.headers),
         onProviderStreamEvent,
       })
-      const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id, credits)[Symbol.asyncIterator]()
+      const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id, () => credits)[Symbol.asyncIterator]()
       let exhausted = false
       try {
         while (true) {
