@@ -46,6 +46,7 @@
   border: 1px solid var(--dsw-alias-border-l3);
   border-radius: 999px;
   corner-shape: round;
+  background: var(--dsw-alias-bg-module-platform);
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;
   line-height: 18px;
