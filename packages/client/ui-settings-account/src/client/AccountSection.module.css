@@ -216,3 +216,26 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* The trailing account link is `flex: none`, so a narrow card gave it the room
+   first and squeezed the identity copy to a few characters per line. The card
+   wraps instead: the identity claims a readable minimum and the link keeps its
+   own line when both no longer fit, which settles the narrow desktop modal and
+   the full-bleed phone card by the width available rather than a breakpoint. */
+.card {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+.identity {
+  flex: 1 1 0;
+  min-width: min(254px, 100%);
+}
+
+.identityCopy {
+  flex: 1;
+}
+
+.accountInfo {
+  margin-left: auto;
+}

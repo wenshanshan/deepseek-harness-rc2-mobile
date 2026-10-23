@@ -266,6 +266,15 @@
     flex-direction: column;
   }
 
+  /* The content column is the one that gives way here: .content keeps its
+     automatic minimum height in a column flex container, so without the
+     min-height reset below a tall section would refuse to shrink and the
+     flexbox would steal the height from the nav instead, collapsing the tab
+     strip. */
+  .content {
+    min-height: 0;
+  }
+
   .nav {
     flex: 0 1 auto;
     min-height: 0;
